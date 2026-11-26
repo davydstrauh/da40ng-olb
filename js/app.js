@@ -1,7 +1,7 @@
 /* ============================================================
-   DA40 NG — Apple-Style Offline Flight Manual & eQRH Engine (v6.0)
-   FlySmart Chevron Breadcrumb Navigation • Per-Subitem Favorites
-   San Francisco Typography • Exact Text-Selection Highlighter
+   DA40 NG — Apple-Style Offline Flight Manual & eQRH Engine (v7.0)
+   FlySmart Standalone Documentary Units (DU) • 5-Level Chevron Nav
+   Per-Item Favorites • San Francisco Typography • Text Highlighter
    ============================================================ */
 
 (() => {
@@ -16,13 +16,13 @@
 
   const CHAPTER_MAP = new Map();
   const UNIT_MAP    = new Map();
-  const AFM_FLAT    = [];
+  const AFM_UNITS   = [];
 
   AFM_CHAPTERS.forEach(ch => {
     CHAPTER_MAP.set(ch.id, ch);
     ch.units.forEach(u => {
-      const entry = { kind: 'afm', chapter: ch, unit: u, flatIdx: AFM_FLAT.length };
-      AFM_FLAT.push(entry);
+      const entry = { kind: 'afm', chapter: ch, unit: u, unitIdx: AFM_UNITS.length };
+      AFM_UNITS.push(entry);
       UNIT_MAP.set(u.id, entry);
     });
   });
@@ -75,9 +75,9 @@
     theme: 'light',
     activeLayer: 0,
     layers: [
-      { module: 'afm',  itemId: 'du-2-2',  subId: null, history: ['du-2-2'],  histIdx: 0, scroll: 0 },
-      { module: 'eqrh', itemId: 'em-334',  subId: null, history: ['em-334'],  histIdx: 0, scroll: 0 },
-      { module: 'sop',  itemId: 'nm-4a56', subId: null, history: ['nm-4a56'], histIdx: 0, scroll: 0 }
+      { module: 'afm',  itemId: 'du-2-2',  subKey: '', history: ['du-2-2'],  histIdx: 0, scroll: 0 },
+      { module: 'eqrh', itemId: 'em-334',  subKey: '', history: ['em-334'],  histIdx: 0, scroll: 0 },
+      { module: 'sop',  itemId: 'nm-4a56', subKey: '', history: ['nm-4a56'], histIdx: 0, scroll: 0 }
     ],
     favorites: ['du-2-2', 'du-2-5', 'em-334'],
     notes: {},
@@ -89,8 +89,7 @@
 
   let state = JSON.parse(JSON.stringify(defaultState));
   let swStatusLabel = 'Ready';
-  let openCrumbMenuKind = null; // 'root' | 'chapter' | 'unit' | 'sub' | 'eqrh-cat' | 'eqrh-proc' | 'sop-cat' | 'sop-proc'
-  let openCrumbAnchorEl = null;
+  let openCrumbMenuKind = null;
 
   function saveState() { idbSet(STORE_KEY, state); }
   function curLayer()  { return state.layers[state.activeLayer]; }
@@ -180,25 +179,231 @@
     }).join(' ');
   }
 
-  // Extract deterministic sub-items (h3 & h4) from an AFM unit
-  function getUnitSubs(unit, lang = state.lang) {
-    if (!unit) return [];
-    const blocks = unit.bilingualBlocks ? (unit.bilingualBlocks[lang] || unit.bilingualBlocks.en) : (unit.blocks || []);
-    const subs = [];
-    let idx = 0;
-    blocks.forEach((b) => {
-      if (b.type === 'h3' || b.type === 'h4') {
-        const text = (b.text !== undefined ? b.text : t(b)).trim();
-        if (text) {
-          subs.push({ id: `sub-${idx}`, level: b.type, text });
-          idx++;
-        }
-      }
-    });
-    return subs;
+  // ============================================================
+  // FLYSMART STANDALONE DOCUMENTARY UNIT (DU) TREE ENGINE
+  // Every sub-section (h3) and substantive sub-sub-section (h4)
+  // opens as its own isolated page — zero endless scrolling!
+  // ============================================================
+  const TREE_CACHE = new Map();
+
+  function isSubstantialIntro(items) {
+    if (!items || !items.length) return false;
+    if (items.some(x => ['gridtable','table','kv','checklist','list','figure','warning','caution'].includes(x.b.type))) {
+      return true;
+    }
+    if (items.length >= 3) return true;
+    const totalChars = items.reduce((acc, x) => acc + String(x.b.text || '').length, 0);
+    return totalChars > 360;
   }
 
-  // Favorites helpers (supports ch:<chId>, <unitId>, <procId>, and <unitId>#<subId>)
+  function shouldSplitL5(rawItems) {
+    const h4Idxs = [];
+    rawItems.forEach((x, idx) => { if (x.b.type === 'h4') h4Idxs.push(idx); });
+    if (h4Idxs.length < 2) return false;
+
+    // Inspect each h4 slice
+    const slices = h4Idxs.map((pos, k) => {
+      const end = k + 1 < h4Idxs.length ? h4Idxs[k + 1] : rawItems.length;
+      return rawItems.slice(pos + 1, end);
+    });
+
+    // If a checklist numbered sequence continues right across the h4 boundary (e.g. 3.3.5 step 9 -> step 10), keep together
+    for (let k = 0; k < slices.length; k++) {
+      const firstBlk = slices[k][0]?.b;
+      if (firstBlk && firstBlk.type === 'checklist' && firstBlk.rows?.length) {
+        const m = String(firstBlk.rows[0].item || '').match(/^(\d+)\./);
+        if (m && Number(m[1]) >= 4 && k > 0) return false;
+      }
+    }
+
+    // Require at least 2 slices to have substantive content (>=2 blocks or a table/checklist/kv/list)
+    const richCount = slices.filter(sl =>
+      sl.length >= 2 || (sl.length === 1 && ['gridtable','table','checklist','kv','list'].includes(sl[0].b.type))
+    ).length;
+    return richCount >= 2;
+  }
+
+  function buildUnitTree(unit, lang = state.lang) {
+    if (!unit) return { l4: [], leaves: [] };
+    const cacheKey = `${unit.id}::${lang}`;
+    if (TREE_CACHE.has(cacheKey)) return TREE_CACHE.get(cacheKey);
+
+    const isRu = lang === 'ru';
+    const blocks = unit.bilingualBlocks ? (unit.bilingualBlocks[lang] || unit.bilingualBlocks.en) : (unit.blocks || []);
+    const indexed = blocks.map((b, origIdx) => ({ origIdx, b }));
+
+    const hasH3 = indexed.some(x => x.b.type === 'h3');
+    const h4Count = indexed.filter(x => x.b.type === 'h4').length;
+
+    // Simple unit without sub-sections -> single standalone DU
+    if (!hasH3 && h4Count < 2) {
+      const res = {
+        l4: [],
+        leaves: [{
+          key: '',
+          unitId: unit.id,
+          l4Idx: -1,
+          l5Idx: -1,
+          title: unit.title[lang] || unit.title.en,
+          parentTitle: '',
+          context: [],
+          blocks: indexed
+        }]
+      };
+      TREE_CACHE.set(cacheKey, res);
+      return res;
+    }
+
+    const l4Nodes = [];
+    let unitContext = [];
+
+    if (hasH3) {
+      const pre = [];
+      let cur = null;
+      indexed.forEach(x => {
+        if (x.b.type === 'h3') {
+          if (cur) l4Nodes.push(cur);
+          cur = { title: (x.b.text || '').trim(), raw: [] };
+        } else {
+          if (!cur) pre.push(x);
+          else cur.raw.push(x);
+        }
+      });
+      if (cur) l4Nodes.push(cur);
+
+      if (pre.length) {
+        if (isSubstantialIntro(pre)) {
+          l4Nodes.unshift({ title: isRu ? 'Общие положения' : 'General', raw: pre });
+        } else {
+          unitContext = pre;
+        }
+      }
+    } else {
+      const pre = [];
+      let cur = null;
+      indexed.forEach(x => {
+        if (x.b.type === 'h4') {
+          if (cur) l4Nodes.push(cur);
+          cur = { title: (x.b.text || '').trim(), raw: [] };
+        } else {
+          if (!cur) pre.push(x);
+          else cur.raw.push(x);
+        }
+      });
+      if (cur) l4Nodes.push(cur);
+
+      if (pre.length) {
+        if (isSubstantialIntro(pre)) {
+          l4Nodes.unshift({ title: isRu ? 'Основная процедура' : 'Main Procedure', raw: pre });
+        } else {
+          unitContext = pre;
+        }
+      }
+    }
+
+    const leaves = [];
+    l4Nodes.forEach((node, i4) => {
+      node.key = `s${i4}`;
+      if (hasH3 && shouldSplitL5(node.raw)) {
+        const pre5 = [];
+        const l5Nodes = [];
+        let cur5 = null;
+        node.raw.forEach(x => {
+          if (x.b.type === 'h4') {
+            if (cur5) l5Nodes.push(cur5);
+            cur5 = { title: (x.b.text || '').trim(), blocks: [] };
+          } else {
+            if (!cur5) pre5.push(x);
+            else cur5.blocks.push(x);
+          }
+        });
+        if (cur5) l5Nodes.push(cur5);
+
+        let l5Context = [];
+        if (pre5.length) {
+          if (isSubstantialIntro(pre5)) {
+            l5Nodes.unshift({ title: isRu ? 'Общие действия' : 'Initial Actions', blocks: pre5 });
+          } else {
+            l5Context = pre5;
+          }
+        }
+        node.children = l5Nodes.map((c5, i5) => {
+          const leafKey = `s${i4}.c${i5}`;
+          c5.key = leafKey;
+          leaves.push({
+            key: leafKey,
+            unitId: unit.id,
+            l4Idx: i4,
+            l5Idx: i5,
+            title: c5.title,
+            parentTitle: node.title,
+            context: [...unitContext, ...l5Context],
+            blocks: c5.blocks
+          });
+          return c5;
+        });
+      } else {
+        node.children = [];
+        leaves.push({
+          key: `s${i4}`,
+          unitId: unit.id,
+          l4Idx: i4,
+          l5Idx: -1,
+          title: node.title,
+          parentTitle: '',
+          context: unitContext,
+          blocks: node.raw
+        });
+      }
+    });
+
+    const res = { l4: l4Nodes, leaves };
+    TREE_CACHE.set(cacheKey, res);
+    return res;
+  }
+
+  // Resolve active standalone leaf DU for a given unit + subKey
+  function resolveLeaf(unit, subKey, lang = state.lang) {
+    const tree = buildUnitTree(unit, lang);
+    if (!tree.leaves.length) return { tree, leaf: null, leafIdx: 0 };
+    if (!subKey) return { tree, leaf: tree.leaves[0], leafIdx: 0 };
+
+    // Exact leaf key match (e.g. 's1.c0' or 's0')
+    let idx = tree.leaves.findIndex(l => l.key === subKey);
+    if (idx >= 0) return { tree, leaf: tree.leaves[idx], leafIdx: idx };
+
+    // Prefix match (e.g. user clicked Level-4 's1' which has L5 children 's1.c0', 's1.c1' -> open 's1.c0')
+    idx = tree.leaves.findIndex(l => l.key.startsWith(subKey + '.'));
+    if (idx >= 0) return { tree, leaf: tree.leaves[idx], leafIdx: idx };
+
+    // Fallback when switching EN <-> RU if L5 depth differs: match same L4 index 'sN'
+    const m = String(subKey).match(/^s(\d+)/);
+    if (m) {
+      const wantI4 = Number(m[1]);
+      idx = tree.leaves.findIndex(l => l.l4Idx === wantI4);
+      if (idx >= 0) return { tree, leaf: tree.leaves[idx], leafIdx: idx };
+    }
+    return { tree, leaf: tree.leaves[0], leafIdx: 0 };
+  }
+
+  // Flatten all AFM standalone leaf DUs for seamless Previous / Next stepping
+  function getAllAfmLeaves(lang = state.lang) {
+    const all = [];
+    AFM_UNITS.forEach(entry => {
+      const tree = buildUnitTree(entry.unit, lang);
+      tree.leaves.forEach(leaf => {
+        all.push({
+          ref: leaf.key ? `${entry.unit.id}::${leaf.key}` : entry.unit.id,
+          code: entry.unit.code,
+          unitTitle: entry.unit.title[lang] || entry.unit.title.en,
+          title: leaf.key ? leaf.title : `${entry.unit.code} ${entry.unit.title[lang] || entry.unit.title.en}`
+        });
+      });
+    });
+    return all;
+  }
+
+  // ---- FAVORITES (ch:<chId>, <unitId>, <unitId>::<subKey>, <procId>) ----
   function isFav(favId) {
     return state.favorites.includes(favId);
   }
@@ -222,7 +427,6 @@
     $('favCount').textContent = cnt;
     $('favCount').classList.toggle('hidden', cnt === 0);
 
-    // Sync every star button currently in the DOM (crumbBar, open dropdown, reader headings)
     document.querySelectorAll('[data-fav]').forEach(btn => {
       const id = btn.dataset.fav;
       const starred = isFav(id);
@@ -253,18 +457,18 @@
   }
 
   // ---- NAVIGATION ----
-  function scrollToSub(subId, flash = true) {
-    if (!subId) return;
-    const target = elReader.querySelector(`[data-sub-anchor="${CSS.escape(subId)}"]`);
-    if (!target) return;
-    const top = target.offsetTop - 16;
-    elReaderPane.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-    if (flash) {
-      target.classList.remove('flash-focus');
-      void target.offsetWidth;
-      target.classList.add('flash-focus');
-      setTimeout(() => target.classList.remove('flash-focus'), 1100);
+  function parseRef(targetRef) {
+    if (!targetRef) return { itemId: '', subKey: '' };
+    if (targetRef.includes('::')) {
+      const [itemId, subKey] = targetRef.split('::');
+      return { itemId, subKey: subKey || '' };
     }
+    // Migrate legacy v6 `#sub-N` bookmark refs gracefully
+    if (targetRef.includes('#')) {
+      const [itemId] = targetRef.split('#');
+      return { itemId, subKey: '' };
+    }
+    return { itemId: targetRef, subKey: '' };
   }
 
   function navigateTo(targetRef, pushHist = true) {
@@ -272,51 +476,41 @@
     closeCrumbMenu();
     hideHlPopover();
 
-    // Handle chapter bookmark: ch:<chId>
     if (targetRef.startsWith('ch:')) {
       const ch = CHAPTER_MAP.get(targetRef.slice(3));
       if (ch && ch.units.length) navigateTo(ch.units[0].id, pushHist);
       return;
     }
 
-    // Handle sub-section target: <unitId>#<subId>
-    let itemId = targetRef;
-    let subId = null;
-    if (targetRef.includes('#')) {
-      [itemId, subId] = targetRef.split('#');
-    }
-
+    const { itemId, subKey } = parseRef(targetRef);
     const entry = UNIT_MAP.get(itemId);
     if (!entry) return;
 
-    const L = curLayer();
-    const sameUnit = (L.module === entry.kind && L.itemId === itemId);
+    let resolvedSubKey = subKey;
+    if (entry.kind === 'afm') {
+      const { leaf } = resolveLeaf(entry.unit, subKey);
+      resolvedSubKey = leaf ? leaf.key : '';
+    } else {
+      resolvedSubKey = '';
+    }
 
+    const canonicalRef = resolvedSubKey ? `${itemId}::${resolvedSubKey}` : itemId;
+    const L = curLayer();
     L.scroll = elReaderPane.scrollTop;
     L.module = entry.kind;
     L.itemId = itemId;
-    L.subId  = subId;
+    L.subKey = resolvedSubKey;
 
     if (pushHist) {
       L.history = L.history.slice(0, L.histIdx + 1);
-      if (L.history[L.history.length - 1] !== targetRef) {
-        L.history.push(targetRef);
+      if (L.history[L.history.length - 1] !== canonicalRef) {
+        L.history.push(canonicalRef);
         L.histIdx = L.history.length - 1;
       }
     }
     saveState();
-
-    if (sameUnit && subId) {
-      renderCrumbBar();
-      scrollToSub(subId, true);
-    } else {
-      renderAll();
-      if (subId) {
-        requestAnimationFrame(() => scrollToSub(subId, true));
-      } else {
-        elReaderPane.scrollTop = 0;
-      }
-    }
+    renderAll();
+    elReaderPane.scrollTop = 0;
   }
 
   function switchModule(mod) {
@@ -324,13 +518,15 @@
     hideHlPopover();
     const L = curLayer();
     L.module = mod;
-    L.subId = null;
     if (mod === 'afm' && (!UNIT_MAP.get(L.itemId) || UNIT_MAP.get(L.itemId).kind !== 'afm')) {
       L.itemId = AFM_CHAPTERS[0]?.units[0]?.id || 'du-1-1';
+      L.subKey = '';
     } else if (mod === 'eqrh' && (!UNIT_MAP.get(L.itemId) || UNIT_MAP.get(L.itemId).kind !== 'eqrh')) {
       L.itemId = EQRH_EMERGENCY[0]?.id || 'em-334';
+      L.subKey = '';
     } else if (mod === 'sop' && (!UNIT_MAP.get(L.itemId) || UNIT_MAP.get(L.itemId).kind !== 'sop')) {
       L.itemId = EQRH_NORMAL[0]?.id || 'nm-4a4';
+      L.subKey = '';
     }
     saveState();
     renderAll();
@@ -364,11 +560,10 @@
   }
 
   // ============================================================
-  // FLYSMART-STYLE TOP CHEVRON BREADCRUMB BAR & DROPDOWN MENUS
+  // FLYSMART 5-LEVEL CHEVRON BREADCRUMB BAR & DROPDOWN MENUS
   // ============================================================
   function closeCrumbMenu() {
     openCrumbMenuKind = null;
-    openCrumbAnchorEl = null;
     elCrumbMenu.classList.add('hidden');
     elCrumbBar.querySelectorAll('.crumb-wrap.is-open').forEach(el => el.classList.remove('is-open'));
   }
@@ -416,10 +611,7 @@
       const entry = UNIT_MAP.get(L.itemId);
       const ch = entry?.chapter || AFM_CHAPTERS[0];
       const u  = entry?.unit || ch?.units[0];
-      const subs = getUnitSubs(u);
-      const activeSub = subs.length
-        ? (subs.find(s => s.id === L.subId) || subs[0])
-        : null;
+      const { tree, leaf } = resolveLeaf(u, L.subKey);
 
       segs.push({ kind: 'root', isRoot: true, label: isRu ? 'РЛЭ' : 'AFM' });
       if (ch) {
@@ -438,12 +630,21 @@
           label: t(u.title)
         });
       }
-      if (activeSub) {
+      if (tree.l4.length && leaf && leaf.l4Idx >= 0) {
+        const l4Node = tree.l4[leaf.l4Idx];
         segs.push({
-          kind: 'sub',
-          favId: `${u.id}#${activeSub.id}`,
-          label: activeSub.text
+          kind: 'l4',
+          favId: `${u.id}::${l4Node.key}`,
+          label: l4Node.title
         });
+        if (l4Node.children && l4Node.children.length && leaf.l5Idx >= 0) {
+          const l5Node = l4Node.children[leaf.l5Idx];
+          segs.push({
+            kind: 'l5',
+            favId: `${u.id}::${l5Node.key}`,
+            label: l5Node.title
+          });
+        }
       }
     } else if (L.module === 'eqrh') {
       const entry = UNIT_MAP.get(L.itemId);
@@ -490,8 +691,13 @@
     elCrumbBar.innerHTML = segs.map((s, idx) => crumbSegHtml({
       ...s,
       isLast: idx === segs.length - 1,
-      zIndex: 10 - idx
+      zIndex: 12 - idx
     })).join('');
+
+    // Auto-scroll breadcrumb bar horizontally so rightmost active segment is always visible on narrow screens
+    requestAnimationFrame(() => {
+      elCrumbBar.scrollLeft = elCrumbBar.scrollWidth;
+    });
   }
 
   function renderCrumbMenuContent(kind, filterQuery = '') {
@@ -503,7 +709,7 @@
     let showFilter = false;
     let rowsHtml = '';
 
-    const buildRow = ({ nav = '', mod = '', favId = '', code = '', label = '', cas = '', casCls = '', meta = '', active = false, extraCls = '' }) => {
+    const buildRow = ({ nav = '', mod = '', favId = '', code = '', label = '', cas = '', casCls = '', meta = '', active = false }) => {
       const starHtml = favId
         ? `<button class="cm-star ${isFav(favId) ? 'starred' : ''}" data-fav="${escHtml(favId)}" title="${isRu ? 'В избранное' : 'Favorite'}">${starSvg(isFav(favId), 15)}</button>`
         : '';
@@ -512,7 +718,7 @@
       const metaHtml = meta ? `<span class="cm-meta">${escHtml(meta)}</span>` : '';
       const chkHtml = active ? `<span class="cm-check">${ICO_CHECK}</span>` : '';
       const actAttr = mod ? `data-cm-mod="${escHtml(mod)}"` : `data-cm-nav="${escHtml(nav)}"`;
-      return `<div class="cm-row ${active ? 'active' : ''} ${extraCls}" ${actAttr}>
+      return `<div class="cm-row ${active ? 'active' : ''}" ${actAttr}>
         ${starHtml}
         <div class="cm-body">${codeHtml}<span class="cm-label">${casHtml}${escHtml(label)}</span></div>
         ${metaHtml}${chkHtml}
@@ -522,7 +728,7 @@
     if (kind === 'root') {
       title = isRu ? 'Документы DA40 NG' : 'DA40 NG Library';
       const mods = [
-        { mod: 'afm',   label: isRu ? 'РЛЭ — Руководство по лётной эксплуатации' : 'AFM — Airplane Flight Manual', meta: `${AFM_FLAT.length}` },
+        { mod: 'afm',   label: isRu ? 'РЛЭ — Руководство по лётной эксплуатации' : 'AFM — Airplane Flight Manual', meta: `${AFM_UNITS.length}` },
         { mod: 'eqrh',  label: isRu ? 'eQRH — Аварийные и особые случаи' : 'eQRH — Emergency & Abnormal', meta: `${EQRH_EMERGENCY.length + EQRH_ABNORMAL.length}` },
         { mod: 'sop',   label: isRu ? 'Чеклисты — Нормальная эксплуатация' : 'Checklists — Normal Procedures', meta: `${EQRH_NORMAL.length}` },
         { mod: 'tools', label: isRu ? 'Настройки, бэкап и кэш' : 'Settings, Backup & Cache', meta: '' }
@@ -545,29 +751,45 @@
       showFilter = ch.units.length > 6;
       const units = ch.units.filter(u => !q || `${u.code} ${u.title.en} ${u.title.ru}`.toLowerCase().includes(q));
       rowsHtml = units.map(u => {
-        const subCnt = getUnitSubs(u).length;
+        const tr = buildUnitTree(u);
         return buildRow({
           nav: u.id,
           favId: u.id,
           code: u.code,
           label: t(u.title),
-          meta: subCnt > 0 ? `${subCnt}` : '',
+          meta: tr.l4.length > 0 ? `${tr.l4.length}` : '',
           active: u.id === L.itemId
         });
       }).join('');
-    } else if (kind === 'sub') {
+    } else if (kind === 'l4') {
       const u = UNIT_MAP.get(L.itemId)?.unit;
-      const subs = getUnitSubs(u);
-      title = isRu ? `Подпункты · ${u?.code || ''}` : `Sub-sections · ${u?.code || ''}`;
-      showFilter = subs.length > 7;
-      const activeSubId = L.subId || subs[0]?.id;
-      const filtered = subs.filter(s => !q || s.text.toLowerCase().includes(q));
-      rowsHtml = filtered.map(s => buildRow({
-        nav: `${u.id}#${s.id}`,
-        favId: `${u.id}#${s.id}`,
-        label: s.text,
-        active: s.id === activeSubId,
-        extraCls: s.level === 'h4' ? 'is-sub-h4' : ''
+      const { tree, leaf } = resolveLeaf(u, L.subKey);
+      title = isRu ? `Раздел ${u?.code || ''} · Подпункты` : `Section ${u?.code || ''} · Sub-sections`;
+      showFilter = tree.l4.length > 7;
+      const filtered = tree.l4.filter(n => !q || n.title.toLowerCase().includes(q));
+      rowsHtml = filtered.map((n) => {
+        const targetRef = n.children.length ? `${u.id}::${n.children[0].key}` : `${u.id}::${n.key}`;
+        return buildRow({
+          nav: targetRef,
+          favId: `${u.id}::${n.key}`,
+          label: n.title,
+          meta: n.children.length ? `${n.children.length}` : '',
+          active: leaf && tree.l4[leaf.l4Idx]?.key === n.key
+        });
+      }).join('');
+    } else if (kind === 'l5') {
+      const u = UNIT_MAP.get(L.itemId)?.unit;
+      const { tree, leaf } = resolveLeaf(u, L.subKey);
+      const l4Node = (leaf && leaf.l4Idx >= 0) ? tree.l4[leaf.l4Idx] : null;
+      const kids = l4Node?.children || [];
+      title = l4Node ? l4Node.title : (isRu ? 'Пункты' : 'Items');
+      showFilter = kids.length > 7;
+      const filtered = kids.filter(c => !q || c.title.toLowerCase().includes(q));
+      rowsHtml = filtered.map(c => buildRow({
+        nav: `${u.id}::${c.key}`,
+        favId: `${u.id}::${c.key}`,
+        label: c.title,
+        active: leaf && leaf.key === c.key
       })).join('');
     } else if (kind === 'eqrh-cat') {
       const curCat = UNIT_MAP.get(L.itemId)?.cat || 'EMERGENCY';
@@ -642,7 +864,6 @@
 
     const listEl = elCrumbMenu.querySelector('.cm-list');
     if (filterQuery !== '' && listEl) {
-      // Update only list to preserve search input focus
       listEl.innerHTML = rowsHtml || `<div class="empty-state">${isRu ? 'Ничего не найдено' : 'No matches'}</div>`;
       return;
     }
@@ -655,11 +876,8 @@
       <div class="cm-list">${rowsHtml || `<div class="empty-state">${isRu ? 'Ничего не найдено' : 'No matches'}</div>`}</div>`;
 
     const inp = elCrumbMenu.querySelector('#cmFilterInput');
-    if (inp) {
-      inp.oninput = (e) => renderCrumbMenuContent(kind, e.target.value);
-    }
+    if (inp) inp.oninput = (e) => renderCrumbMenuContent(kind, e.target.value);
 
-    // Scroll active item into view inside dropdown
     requestAnimationFrame(() => {
       const act = elCrumbMenu.querySelector('.cm-row.active');
       if (act) act.scrollIntoView({ block: 'nearest' });
@@ -674,7 +892,6 @@
     }
     hideHlPopover();
     openCrumbMenuKind = kind;
-    openCrumbAnchorEl = anchorEl;
 
     elCrumbBar.querySelectorAll('.crumb-wrap').forEach(w => {
       w.classList.toggle('is-open', w.dataset.crumbWrap === kind);
@@ -694,55 +911,27 @@
     elCrumbMenu.style.top  = `${Math.round(top)}px`;
   }
 
-  // ---- AFM RENDERING ----
-  function renderAfmUnit(entry) {
-    const u = entry.unit;
-    const ch = entry.chapter;
-    const blocks = u.bilingualBlocks ? (u.bilingualBlocks[state.lang] || u.bilingualBlocks.en) : (u.blocks || []);
-    const starred = isFav(u.id);
-    const chLabel = state.lang === 'ru' ? `Глава ${ch.code} · ${t(ch.title)}` : `Chapter ${ch.code} · ${t(ch.title)}`;
-    const apprChip = ch.status === 'APPROVED'
-      ? `<span class="status-chip chip-approved">${state.lang === 'ru' ? 'Утверждено' : 'Approved'}</span>`
-      : '';
+  // ---- RENDER AFM BLOCKS (with stable origIdx highlight scopes!) ----
+  function renderAfmBlocksHtml(unitId, indexedBlocks) {
+    let html = '';
+    indexedBlocks.forEach(({ origIdx, b: blk }) => {
+      let part = 0;
+      const scope = () => `${unitId}::${state.lang}::b${origIdx}::${part++}`;
 
-    let scopeSeq = 0;
-    const nextScope = () => `${u.id}::${state.lang}::${scopeSeq++}`;
-    let subSeq = 0;
-
-    let html = `
-      <header class="doc-header">
-        <div class="doc-eyebrow">
-          <span>${escHtml(chLabel)}</span>
-          ${apprChip}
-        </div>
-        <div class="doc-title-row">
-          <h1 class="doc-title"><span class="doc-title-code">${escHtml(u.code)}</span>${escHtml(t(u.title))}</h1>
-          <button class="fav-toggle-btn ${starred ? 'starred' : ''}" data-fav="${escHtml(u.id)}" title="${state.lang === 'ru' ? 'В избранное' : 'Favorite'}">${starSvg(starred, 20)}</button>
-        </div>
-      </header>`;
-
-    blocks.forEach((blk) => {
       if (blk.type === 'p') {
         const txt = blk.text !== undefined ? blk.text : t(blk);
-        html += `<p class="du-p hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(txt)}</p>`;
-      } else if (blk.type === 'h3' || blk.type === 'h4') {
-        const subId = `sub-${subSeq++}`;
-        const favKey = `${u.id}#${subId}`;
-        const subStar = isFav(favKey);
-        const tag = blk.type === 'h3' ? 'h2' : 'h3';
-        const hCls = blk.type === 'h3' ? 'du-h3' : 'du-h4';
-        const txt = (blk.text !== undefined ? blk.text : t(blk)).trim();
-        html += `<div class="sub-heading-row is-${blk.type}" data-sub-anchor="${subId}">
-          <${tag} class="${hCls}">${escHtml(txt)}</${tag}>
-          <button class="sub-star-btn ${subStar ? 'starred' : ''}" data-fav="${escHtml(favKey)}" title="${state.lang === 'ru' ? 'Добавить подпункт в избранное' : 'Favorite sub-section'}">${starSvg(subStar, 15)}</button>
-        </div>`;
+        html += `<p class="du-p hl-scope" data-hl-scope="${scope()}">${linkifyAbbr(txt)}</p>`;
+      } else if (blk.type === 'h3') {
+        html += `<h2 class="du-h3">${escHtml(blk.text !== undefined ? blk.text : t(blk))}</h2>`;
+      } else if (blk.type === 'h4') {
+        html += `<h3 class="du-h4">${escHtml(blk.text !== undefined ? blk.text : t(blk))}</h3>`;
       } else if (blk.type === 'list') {
         const items = Array.isArray(blk.items)
           ? blk.items
           : String(blk.text || '').split('\n').filter(Boolean).map(l => l.replace(/^[•\-–—*]\s*/, ''));
         if (items.length) {
           html += `<ul class="afm-list">` + items.map(it =>
-            `<li class="hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(it)}</li>`
+            `<li class="hl-scope" data-hl-scope="${scope()}">${linkifyAbbr(it)}</li>`
           ).join('') + `</ul>`;
         }
       } else if (blk.type === 'warning' || blk.type === 'caution' || blk.type === 'note') {
@@ -751,24 +940,24 @@
           : { warning: 'Warning', caution: 'Caution', note: 'Note' };
         const rawTxt = blk.text !== undefined ? blk.text : t(blk);
         const paras = String(rawTxt).split(/\n{2,}/).filter(Boolean).map(p =>
-          `<p class="hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(p)}</p>`
+          `<p class="hl-scope" data-hl-scope="${scope()}">${linkifyAbbr(p)}</p>`
         ).join('');
         const subBullets = (blk.bullets && blk.bullets.length)
           ? `<ul class="callout-list">` + blk.bullets.map(it =>
-              `<li class="hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(it)}</li>`
+              `<li class="hl-scope" data-hl-scope="${scope()}">${linkifyAbbr(it)}</li>`
             ).join('') + `</ul>`
           : '';
         const subChecks = (blk.checks && blk.checks.length)
           ? `<div class="callout-checks">` + blk.checks.map(r =>
               `<div class="callout-chk-row">
-                <span class="callout-chk-item hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(r.item || '')}</span>
-                <span class="callout-chk-act hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(r.action || '')}</span>
+                <span class="callout-chk-item hl-scope" data-hl-scope="${scope()}">${linkifyAbbr(r.item || '')}</span>
+                <span class="callout-chk-act hl-scope" data-hl-scope="${scope()}">${linkifyAbbr(r.action || '')}</span>
               </div>`
             ).join('') + `</div>`
           : '';
         const afterHtml = blk.afterText
           ? String(blk.afterText).split(/\n{2,}/).filter(Boolean).map(p =>
-              `<p class="hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(p)}</p>`
+              `<p class="hl-scope" data-hl-scope="${scope()}">${linkifyAbbr(p)}</p>`
             ).join('')
           : '';
         html += `<div class="callout callout-${blk.type}"><span class="callout-lbl">${lblMap[blk.type]}</span>${paras}${subBullets}${subChecks}${afterHtml}</div>`;
@@ -777,15 +966,15 @@
           const k = typeof r.k === 'string' ? r.k : t(r.k);
           const v = typeof r.v === 'string' ? r.v : t(r.v);
           return `<div class="kv-row">
-            <div class="kv-k hl-scope" data-hl-scope="${nextScope()}">${escHtml(k)}</div>
-            <div class="kv-v hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(v)}</div>
+            <div class="kv-k hl-scope" data-hl-scope="${scope()}">${escHtml(k)}</div>
+            <div class="kv-v hl-scope" data-hl-scope="${scope()}">${linkifyAbbr(v)}</div>
           </div>`;
         }).join('');
         html += `<div class="kv-card">${rows}</div>`;
       } else if (blk.type === 'checklist') {
         const rows = (blk.rows || []).map(r => `<div class="afm-chk-row">
-          <div class="afm-chk-item hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(r.item || '')}</div>
-          ${r.action ? `<div class="afm-chk-action hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(r.action)}</div>` : ''}
+          <div class="afm-chk-item hl-scope" data-hl-scope="${scope()}">${linkifyAbbr(r.item || '')}</div>
+          ${r.action ? `<div class="afm-chk-action hl-scope" data-hl-scope="${scope()}">${linkifyAbbr(r.action)}</div>` : ''}
         </div>`).join('');
         html += `<div class="afm-chk-card">${rows}</div>`;
       } else if (blk.type === 'gridtable') {
@@ -802,7 +991,7 @@
               if (c.rs > 1) attrs.push(`rowspan="${c.rs}"`);
               const cls = [c.tone ? `tone-${c.tone}` : '', c.th ? '' : 'hl-scope'].filter(Boolean).join(' ');
               if (cls) attrs.push(`class="${cls}"`);
-              if (!c.th) attrs.push(`data-hl-scope="${nextScope()}"`);
+              if (!c.th) attrs.push(`data-hl-scope="${scope()}"`);
               return `<${tag} ${attrs.join(' ')}>${c.th ? escHtml(c.t) : linkifyAbbr(c.t)}</${tag}>`;
             }).join('') + '</tr>';
             if (isHead && !bodyHtml) headHtml += tr;
@@ -818,7 +1007,7 @@
         const rows = (blk.rows || []).map(row =>
           '<tr>' + row.map(c => {
             const { cls, html: chHtml } = formatLegacyCell(c);
-            return `<td class="${cls} hl-scope" data-hl-scope="${nextScope()}">${chHtml}</td>`;
+            return `<td class="${cls} hl-scope" data-hl-scope="${scope()}">${chHtml}</td>`;
           }).join('') + '</tr>'
         ).join('');
         html += `<div class="data-table-card"><table class="data-table"><thead><tr>${hdrs}</tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -830,21 +1019,77 @@
         </figure>`;
       }
     });
+    return html;
+  }
 
-    const prev = entry.flatIdx > 0 ? AFM_FLAT[entry.flatIdx - 1] : null;
-    const next = entry.flatIdx < AFM_FLAT.length - 1 ? AFM_FLAT[entry.flatIdx + 1] : null;
-    html += `<nav class="doc-pager">
-      ${prev ? `<button class="pager-btn" data-nav="${escHtml(prev.unit.id)}">
-        <span class="pager-dir">← ${state.lang === 'ru' ? 'Предыдущий раздел' : 'Previous'}</span>
-        <span class="pager-title">${escHtml(prev.unit.code)} ${escHtml(t(prev.unit.title))}</span>
-      </button>` : '<div></div>'}
-      ${next ? `<button class="pager-btn pager-next" data-nav="${escHtml(next.unit.id)}">
-        <span class="pager-dir">${state.lang === 'ru' ? 'Следующий раздел' : 'Next'} →</span>
-        <span class="pager-title">${escHtml(next.unit.code)} ${escHtml(t(next.unit.title))}</span>
-      </button>` : '<div></div>'}
-    </nav>`;
+  // ---- STANDALONE AFM DU RENDERER ----
+  function renderAfmUnit(entry) {
+    const u = entry.unit;
+    const ch = entry.chapter;
+    const L = curLayer();
+    const isRu = state.lang === 'ru';
+    const { leaf } = resolveLeaf(u, L.subKey);
+    if (!leaf) return;
 
-    elReader.innerHTML = html;
+    // Keep L.subKey synced to resolved leaf key
+    L.subKey = leaf.key;
+
+    const currentFavId = leaf.key ? `${u.id}::${leaf.key}` : u.id;
+    const starred = isFav(currentFavId);
+    const apprChip = ch.status === 'APPROVED'
+      ? `<span class="status-chip chip-approved">${isRu ? 'Утверждено' : 'Approved'}</span>`
+      : '';
+
+    // Build crisp eyebrow showing parent hierarchy cleanly
+    const eyebrowParts = [isRu ? `Глава ${ch.code}` : `Chapter ${ch.code}`];
+    if (leaf.key) {
+      eyebrowParts.push(`${u.code} ${t(u.title)}`);
+      if (leaf.parentTitle) eyebrowParts.push(leaf.parentTitle);
+    } else {
+      eyebrowParts.push(t(ch.title));
+    }
+
+    const titleHtml = leaf.key
+      ? escHtml(leaf.title)
+      : `<span class="doc-title-code">${escHtml(u.code)}</span>${escHtml(t(u.title))}`;
+
+    const contextHtml = (leaf.context && leaf.context.length)
+      ? `<div class="du-context-wrap">${renderAfmBlocksHtml(u.id, leaf.context)}</div>`
+      : '';
+
+    const bodyHtml = renderAfmBlocksHtml(u.id, leaf.blocks);
+
+    // Seamless Previous / Next standalone DU pager across entire AFM
+    const allLeaves = getAllAfmLeaves();
+    const curRef = leaf.key ? `${u.id}::${leaf.key}` : u.id;
+    const curIdx = allLeaves.findIndex(x => x.ref === curRef);
+    const prev = curIdx > 0 ? allLeaves[curIdx - 1] : null;
+    const next = (curIdx >= 0 && curIdx < allLeaves.length - 1) ? allLeaves[curIdx + 1] : null;
+
+    elReader.innerHTML = `
+      <header class="doc-header">
+        <div class="doc-eyebrow">
+          <span>${escHtml(eyebrowParts.join(' · '))}</span>
+          ${apprChip}
+        </div>
+        <div class="doc-title-row">
+          <h1 class="doc-title">${titleHtml}</h1>
+          <button class="fav-toggle-btn ${starred ? 'starred' : ''}" data-fav="${escHtml(currentFavId)}" title="${isRu ? 'В избранное' : 'Favorite'}">${starSvg(starred, 20)}</button>
+        </div>
+      </header>
+      ${contextHtml}
+      ${bodyHtml}
+      <nav class="doc-pager">
+        ${prev ? `<button class="pager-btn" data-nav="${escHtml(prev.ref)}">
+          <span class="pager-dir">← ${isRu ? 'Предыдущий пункт' : 'Previous'}</span>
+          <span class="pager-title">${escHtml(prev.title)}</span>
+        </button>` : '<div></div>'}
+        ${next ? `<button class="pager-btn pager-next" data-nav="${escHtml(next.ref)}">
+          <span class="pager-dir">${isRu ? 'Следующий пункт' : 'Next'} →</span>
+          <span class="pager-title">${escHtml(next.title)}</span>
+        </button>` : '<div></div>'}
+      </nav>`;
+
     applyHighlightsToDOM();
   }
 
@@ -963,7 +1208,7 @@
 
     elReader.innerHTML = `
       <header class="doc-header">
-        <div class="doc-eyebrow"><span>DA40 NG · v6.0</span></div>
+        <div class="doc-eyebrow"><span>DA40 NG · v7.0</span></div>
         <div class="doc-title-row">
           <h1 class="doc-title">${isRu ? 'Настройки и данные' : 'Settings & Data'}</h1>
         </div>
@@ -1243,27 +1488,8 @@
   });
   elReaderPane.addEventListener('mouseup', () => setTimeout(handleSelectionCheck, 20));
   elReaderPane.addEventListener('touchend', () => setTimeout(handleSelectionCheck, 160));
-
-  // Scroll-spy: live-update active sub-section in the FlySmart breadcrumb bar as user scrolls!
-  let scrollSpyTimer = null;
   elReaderPane.addEventListener('scroll', () => {
     if (!elHlPopover.classList.contains('hidden')) hideHlPopover();
-    if (curLayer().module !== 'afm') return;
-    clearTimeout(scrollSpyTimer);
-    scrollSpyTimer = setTimeout(() => {
-      const anchors = elReader.querySelectorAll('[data-sub-anchor]');
-      if (!anchors.length) return;
-      const scrollTop = elReaderPane.scrollTop;
-      let activeId = anchors[0].dataset.subAnchor;
-      for (const a of anchors) {
-        if (a.offsetTop - 60 <= scrollTop) activeId = a.dataset.subAnchor;
-        else break;
-      }
-      if (curLayer().subId !== activeId) {
-        curLayer().subId = activeId;
-        renderCrumbBar();
-      }
-    }, 90);
   }, { passive: true });
 
   // ---- MASTER RENDER ----
@@ -1294,7 +1520,8 @@
     $('defCount').textContent = defCnt;
     $('btnDeferred').classList.toggle('hidden', defCnt === 0);
 
-    const hasNote = !!(state.notes[L.itemId] && state.notes[L.itemId].trim());
+    const noteKey = (L.module === 'afm' && L.subKey) ? `${L.itemId}::${L.subKey}` : L.itemId;
+    const hasNote = !!((state.notes[noteKey] && state.notes[noteKey].trim()) || (state.notes[L.itemId] && state.notes[L.itemId].trim()));
     $('noteDot').classList.toggle('hidden', !hasNote);
 
     if (L.module !== 'tools') {
@@ -1303,13 +1530,15 @@
         if (L.module === 'eqrh') L.itemId = EQRH_EMERGENCY[0]?.id || 'em-334';
         else if (L.module === 'sop') L.itemId = EQRH_NORMAL[0]?.id || 'nm-4a4';
         else L.itemId = AFM_CHAPTERS[0]?.units[0]?.id || 'du-1-1';
+        L.subKey = '';
         entry = UNIT_MAP.get(L.itemId);
       }
-      renderCrumbBar();
-      if (entry) {
-        if (entry.kind === 'afm') renderAfmUnit(entry);
-        else renderQrhProc(entry);
+      if (entry && entry.kind === 'afm') {
+        renderAfmUnit(entry);
+      } else if (entry) {
+        renderQrhProc(entry);
       }
+      renderCrumbBar();
     } else {
       renderCrumbBar();
       renderTools();
@@ -1325,30 +1554,42 @@
       return {
         id: favId,
         title: `${isRu ? 'Глава' : 'Chapter'} ${ch.code} · ${t(ch.title)}`,
-        sub: isRu ? 'РЛЭ · Глава целиком' : 'AFM · Chapter'
+        sub: isRu ? 'РЛЭ · Глава' : 'AFM · Chapter'
       };
     }
-    if (favId.includes('#')) {
-      const [uid, subId] = favId.split('#');
-      const e = UNIT_MAP.get(uid);
-      if (!e || e.kind !== 'afm') return null;
-      const subs = getUnitSubs(e.unit, state.lang);
-      const s = subs.find(x => x.id === subId) || getUnitSubs(e.unit, 'en').find(x => x.id === subId);
-      return {
-        id: favId,
-        title: s ? s.text : `${e.unit.code} ${t(e.unit.title)}`,
-        sub: `${isRu ? 'РЛЭ' : 'AFM'} · ${e.unit.code} ${t(e.unit.title)}`
-      };
-    }
-    const e = UNIT_MAP.get(favId);
+    const { itemId, subKey } = parseRef(favId);
+    const e = UNIT_MAP.get(itemId);
     if (!e) return null;
+
     if (e.kind === 'afm') {
+      if (subKey) {
+        const tree = buildUnitTree(e.unit, state.lang);
+        // Check L4 node match first
+        const l4 = tree.l4.find(n => n.key === subKey);
+        if (l4) {
+          return {
+            id: favId,
+            title: l4.title,
+            sub: `${isRu ? 'РЛЭ' : 'AFM'} · ${e.unit.code} ${t(e.unit.title)}`
+          };
+        }
+        // Check leaf match (L5)
+        const leaf = tree.leaves.find(l => l.key === subKey);
+        if (leaf) {
+          return {
+            id: favId,
+            title: leaf.title,
+            sub: `${e.unit.code} ${t(e.unit.title)}${leaf.parentTitle ? ' · ' + leaf.parentTitle : ''}`
+          };
+        }
+      }
       return {
         id: favId,
         title: `${e.unit.code} ${t(e.unit.title)}`,
         sub: `${isRu ? 'Глава' : 'Chapter'} ${e.chapter.code} · ${t(e.chapter.title)}`
       };
     }
+
     const catLbl = e.cat === 'EMERGENCY' ? (isRu ? 'eQRH · Аварийная' : 'eQRH · Emergency')
       : e.cat === 'ABNORMAL' ? (isRu ? 'eQRH · Особый случай' : 'eQRH · Abnormal')
       : (isRu ? 'Чеклист · Нормальная' : 'Checklist · Normal');
@@ -1378,32 +1619,62 @@
       </div>`).join('');
   }
 
-  // ---- GLOBAL SEARCH ----
+  // ---- GLOBAL SEARCH (Matches exact standalone DUs + eQRH!) ----
   function runGlobalSearch(query) {
     const q = query.trim().toLowerCase();
     const box = $('searchResults');
+    const isRu = state.lang === 'ru';
     if (q.length < 2) {
-      box.innerHTML = `<div class="empty-state">${state.lang === 'ru' ? 'Введите минимум 2 символа для поиска по РЛЭ и eQRH' : 'Type at least 2 characters to search AFM & eQRH'}</div>`;
+      box.innerHTML = `<div class="empty-state">${isRu ? 'Введите минимум 2 символа для поиска по РЛЭ и eQRH' : 'Type at least 2 characters to search AFM & eQRH'}</div>`;
       return;
     }
     const hits = [];
-    UNIT_MAP.forEach((entry, id) => {
-      const blob = JSON.stringify(entry.kind === 'afm' ? entry.unit : entry.proc).toLowerCase();
-      if (blob.includes(q)) {
-        const title = entry.kind === 'afm'
-          ? `${entry.unit.code} ${t(entry.unit.title)}`
-          : `${entry.proc.code} ${cleanProcTitle(entry.proc, true)}`;
-        const sub = entry.kind === 'afm'
-          ? `${state.lang === 'ru' ? 'Глава' : 'Chapter'} ${entry.chapter.code} · ${t(entry.chapter.title)}`
-          : `${entry.cat === 'EMERGENCY' ? 'Emergency' : entry.cat === 'ABNORMAL' ? 'Abnormal' : 'Checklist'}${entry.proc.cas ? ' · ' + entry.proc.cas : ''}`;
-        hits.push({ id, title, sub });
+    // Search AFM standalone leaf DUs in active language (plus cross-language unit title/code match)
+    AFM_UNITS.forEach(entry => {
+      const u = entry.unit;
+      const tree = buildUnitTree(u, state.lang);
+      const otherBlob = JSON.stringify(u.bilingualBlocks[state.lang === 'ru' ? 'en' : 'ru'] || []).toLowerCase();
+      let matchedAnyLeaf = false;
+      tree.leaves.forEach(leaf => {
+        const leafBlob = (u.code + ' ' + u.title.en + ' ' + u.title.ru + ' ' + leaf.title + ' ' + leaf.parentTitle + ' ' + JSON.stringify(leaf.blocks)).toLowerCase();
+        if (leafBlob.includes(q)) {
+          matchedAnyLeaf = true;
+          const ref = leaf.key ? `${u.id}::${leaf.key}` : u.id;
+          hits.push({
+            id: ref,
+            title: leaf.key ? leaf.title : `${u.code} ${t(u.title)}`,
+            sub: leaf.key
+              ? `${u.code} ${t(u.title)}${leaf.parentTitle ? ' · ' + leaf.parentTitle : ''}`
+              : `${isRu ? 'Глава' : 'Chapter'} ${entry.chapter.code} · ${t(entry.chapter.title)}`
+          });
+        }
+      });
+      if (!matchedAnyLeaf && otherBlob.includes(q)) {
+        hits.push({
+          id: u.id,
+          title: `${u.code} ${t(u.title)}`,
+          sub: `${isRu ? 'Глава' : 'Chapter'} ${entry.chapter.code} · ${t(entry.chapter.title)}`
+        });
       }
     });
+
+    // Search eQRH & Checklists
+    [...EQRH_EMERGENCY, ...EQRH_ABNORMAL, ...EQRH_NORMAL].forEach(p => {
+      const e = UNIT_MAP.get(p.id);
+      if (JSON.stringify(p).toLowerCase().includes(q)) {
+        hits.push({
+          id: p.id,
+          title: `${p.code} ${cleanProcTitle(p, true)}`,
+          sub: `${e.cat === 'EMERGENCY' ? 'Emergency' : e.cat === 'ABNORMAL' ? 'Abnormal' : 'Checklist'}${p.cas ? ' · ' + p.cas : ''}`
+        });
+      }
+    });
+
     if (!hits.length) {
-      box.innerHTML = `<div class="empty-state">${state.lang === 'ru' ? 'Совпадений не найдено' : 'No matches found'}</div>`;
+      box.innerHTML = `<div class="empty-state">${isRu ? 'Совпадений не найдено' : 'No matches found'}</div>`;
       return;
     }
-    box.innerHTML = hits.slice(0, 40).map(h => `
+    box.innerHTML = hits.slice(0, 45).map(h => `
       <div class="search-res-item" data-search-nav="${escHtml(h.id)}">
         <div class="search-res-main">
           <div class="search-res-title">${escHtml(h.title)}</div>
@@ -1672,23 +1943,34 @@
     if (r) { closeModal('favModal'); navigateTo(r.dataset.favNav); }
   };
 
-  // Notes Modal
+  // Notes Modal (per-standalone DU!)
+  function currentNoteKey() {
+    const L = curLayer();
+    return (L.module === 'afm' && L.subKey) ? `${L.itemId}::${L.subKey}` : L.itemId;
+  }
   $('btnNotes').onclick = () => {
-    const id = curLayer().itemId;
-    const e = UNIT_MAP.get(id);
-    const lbl = e ? (e.kind === 'afm' ? `${e.unit.code} ${t(e.unit.title)}` : `${e.proc.code} ${cleanProcTitle(e.proc, true)}`) : 'Notes';
+    const L = curLayer();
+    const e = UNIT_MAP.get(L.itemId);
+    let lbl = 'Notes';
+    if (e && e.kind === 'afm') {
+      const { leaf } = resolveLeaf(e.unit, L.subKey);
+      lbl = leaf && leaf.key ? `${e.unit.code} · ${leaf.title}` : `${e.unit.code} ${t(e.unit.title)}`;
+    } else if (e) {
+      lbl = `${e.proc.code} ${cleanProcTitle(e.proc, true)}`;
+    }
+    const nk = currentNoteKey();
     $('notesModalTitle').textContent = lbl;
-    $('noteTextarea').value = state.notes[id] || '';
+    $('noteTextarea').value = state.notes[nk] || state.notes[L.itemId] || '';
     openModal('notesModal');
   };
   $('btnSaveNote').onclick = () => {
-    state.notes[curLayer().itemId] = $('noteTextarea').value;
+    state.notes[currentNoteKey()] = $('noteTextarea').value;
     saveState();
     closeModal('notesModal');
     renderAll();
   };
   $('btnDeleteNote').onclick = () => {
-    delete state.notes[curLayer().itemId];
+    delete state.notes[currentNoteKey()];
     saveState();
     closeModal('notesModal');
     renderAll();
@@ -1765,11 +2047,12 @@
       if (!state.textHighlights || typeof state.textHighlights !== 'object') state.textHighlights = {};
       if (!Array.isArray(state.layers) || state.layers.length !== 3) state.layers = defaultState.layers;
       state.layers.forEach(L => {
-        if (L.subId === undefined) L.subId = null;
+        if (L.subKey === undefined) L.subKey = '';
         if (L.module !== 'tools' && !UNIT_MAP.has(L.itemId)) {
           L.itemId = L.module === 'eqrh' ? (EQRH_EMERGENCY[0]?.id || 'em-334')
             : L.module === 'sop' ? (EQRH_NORMAL[0]?.id || 'nm-4a4')
             : (AFM_CHAPTERS[0]?.units[0]?.id || 'du-1-1');
+          L.subKey = '';
           L.history = [L.itemId];
           L.histIdx = 0;
         }
@@ -1784,11 +2067,11 @@
         swReloading = true;
         location.reload();
       });
-      navigator.serviceWorker.register('./sw.js?v=6.0').then((reg) => {
+      navigator.serviceWorker.register('./sw.js?v=7.0').then((reg) => {
         reg.update().catch(() => {});
-        swStatusLabel = 'Active (v6.0)';
+        swStatusLabel = 'Active (v7.0)';
       }).catch(() => {
-        swStatusLabel = 'Local (v6.0)';
+        swStatusLabel = 'Local (v7.0)';
       });
     }
   }

@@ -1489,3 +1489,21 @@ mark.txt-hl.hl-red    { background: var(--hl-red); }
   .crumb-text { max-width: 165px; }
   .seg-item { padding: 0 9px; font-size: 12.5px; }
 }
+
+/* Parent context notes displayed compactly at top of standalone sub-item DUs */
+.du-context-wrap {
+  margin-bottom: 18px;
+}
+.du-context-wrap .du-p {
+  font-size: 14.5px;
+  color: var(--label-secondary);
+  margin-bottom: 8px;
+}
+.du-sub-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.crumb-text {
+  max-width: 215px;
+}
