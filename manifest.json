@@ -1,0 +1,25 @@
+{
+  "name": "DA40 NG OLB \u2014 Electronic Flight Bag",
+  "short_name": "DA40 NG OLB",
+  "description": "Offline Operational Library Browser & eQRH for Diamond DA40 NG (AFM Rev. 4 EN/RU)",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0f14",
+  "theme_color": "#1a222c",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
