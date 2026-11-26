@@ -1399,6 +1399,11 @@ window.AFM_CH5_CH9 = [
               "text": "Instrument Panel with G1000 Instrument Panel with G1000 Instrument Panel with SED, MED and White Wire Annunciator Panel Major Instruments and Controls 1 Electric Master key switch 21 ELT control unit 2 Fuel Transfer switch 22 Accessory power socket 3 Pitot Heat switch 4 Avionics Master switch 24 Primary Flight Display (PFD) 5 Essential Bus switch 25 Audio amplifier / Intercom / Marker beacon receiver 6 Fuel pumps switch 26 Multi Function Display (MFD) 7 ECU Test button 27 Airspeed Indicator 8 ECU Voter switch 28 Attitude Gyro (artificial horizon) 9 Engine Master switch** 29 Altimeter 10 Rotary buttons for instrument lighting and flood light 30 Vertical Speed Indicator (VSI) 11 Light switches 31 Directional Gyro 12 Emergency switch** 32 Turn & Bank indicator 13 Circuit breakers* 33 Intercom 14 Flap selector switch 34 Annunciator panel 15 Alternate static valve 35 Main Engine Display (MED) 16 Ventilation nozzles 36 Secondary Engine Display (SED) 17 Backup airspeed indicator 37 Chronometer with OAT Indicator 18 Backup artificial horizon 38 COM/NAV 19 Backup altimeter 39 Transponder 20 Emergency compass *) Designations and abbreviations used to identify the circuit breakers are explained in Section 1.5 - DEFINITIONS AND ABBREVIATIONS of the AFM. **) The Emergency switch and optionally the Engine Master switch are guarded. Lift the guard prior to actuating the toggle. After switching, lower the Engine Master switch guard with the toggle in the desired position. Do not lower the Emergency switch guard with the toggle in the ON position."
             },
             {
+              "type": "figure",
+              "src": "assets/fig_panel_g1000.png",
+              "text": "7.4 INSTRUMENT PANEL WITH G1000 — LEFT / CENTER / PEDESTAL (Tap to zoom)"
+            },
+            {
               "type": "note",
               "text": "The figures on the previous pages show the typical DA 40 NG installation position for the equipment. The actual installation may vary due to the approved equipment version."
             },
@@ -1423,6 +1428,11 @@ window.AFM_CH5_CH9 = [
               "text": "7.4.2 HEATING"
             },
             {
+              "type": "figure",
+              "src": "assets/fig_heating_vent.png",
+              "text": "7.4.1–7.4.2 COCKPIT VENTILATION & HEATING SCHEMATIC (Tap to zoom)"
+            },
+            {
               "type": "p",
               "text": "Heating is operated using two levers located on the small center console under the instrument panel. Right lever: up = heating ON down = heating OFF Central lever (air distribution lever): up = airflow to canopy (DEFROST) down = airflow to floor (FLOOR)"
             },
@@ -1444,8 +1454,13 @@ window.AFM_CH5_CH9 = [
             },
             {
               "type": "figure",
-              "src": "assets/fig_panel_g1000.png",
-              "text": "7.4 INSTRUMENT PANEL WITH GARMIN G1000 (Tap to zoom)"
+              "src": "assets/fig_panel_g1000_2.png",
+              "text": "7.4 INSTRUMENT PANEL WITH G1000 — MAIN DISPLAYS & SWITCHES (Tap to zoom)"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_panel_sed_med.png",
+              "text": "7.4 INSTRUMENT PANEL WITH SED, MED & WHITE WIRE PANEL (Tap to zoom)"
             }
           ],
           "ru": [
@@ -1456,6 +1471,16 @@ window.AFM_CH5_CH9 = [
             {
               "type": "p",
               "text": "Основные приборы и органы управления 1 Ключ-выключатель ELECTRIC МASTER (главный выключатель электрооборудования) 21 Блок управления аварийным маяком 2 Переключатель перекачки топлива 22 Разъем дополнительного питания 3 Переключатель обогрева ППД 4 Выключатель AVIONIC MASTER (главный выключатель БРЭО) 24 Основной пилотажный индикатор (PFD) 5 Выключатель ESSENTIAL BUS (выключатель шины основных потребителей) 25 Пульт управления звуковой сигнализацией / системой внутренней связи / маркерным приемником 6 Выключатель FUEL PUM PS (выключатель топливных насосов) 26 Многофункциональный индикатор (М FD) 7 Кнопки проверки блоков управления двигателем 27 Указатель воздушной скорости 8 Селектор ECU VOTER (переключатель блоков управления двигателем) 28 Указатель пространственного положения (авиагоризонт) 9 Выключатель ENGINE MASTER ** (главный выключатель двигателя) 29 Высотомер 10 Кремальеры управления подсветкой приборов и заливающим освещением 30 Вариометр 11 Выключатели светотехнического оборудования 31 Гиродатчик курса 12 Аварийный выключатель ** 32 Указатель поворота и крена 13 АЗСы* 33 Система переговорного устройства 14 Переключатель управления закрылками 34 Панель табло сигнализации 15 Кран резервного приемника статического давления 35 Основной индикатор параметров двигателя (М ED) 16 Вентиляционные насадки 36 Вспомогательный индикатор параметров двигателя (SED) 17 Резервный указатель воздушной скорости 37 Хронометр с указателем температуры наружного воздуха 18 Резервный авиагоризонт 38 COМ /NAV 19 Резервный высотомер 39 Ответчик 20 Аварийный компас *) Обозначения и расшифровка сокращений предохранителей приводятся в разделе РЛЭ 1.5 — «ОПРЕДЕЛЕНИЯ И АББРЕВИАТУРЫ». **) Аварийный выключатель и устанавливаемый дополнительно главный в ыключатель двигателя находятся под колпачками . Поднимите колпачок перед тем, как начать работать с ними. После включения опустите колпачок главного в ыключателя двигателя , оставляя в ыключатель в нужном положении. Не закрывайте колпачок аварийного выключателя, если он включен."
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_heating_vent.png",
+              "text": "7.4.1–7.4.2 СХЕМА ВЕНТИЛЯЦИИ И ОБОГРЕВА КАБИНЫ (нажмите для увеличения)"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_panel_g1000.png",
+              "text": "7.4 ПРИБОРНАЯ ПАНЕЛЬ С G1000 — ЛЕВАЯ ЧАСТЬ И ПУЛЬТ (нажмите для увеличения)"
             },
             {
               "type": "note",
@@ -1475,8 +1500,13 @@ window.AFM_CH5_CH9 = [
             },
             {
               "type": "figure",
-              "src": "assets/fig_panel_g1000.png",
-              "text": "7.4 ПРИБОРНАЯ ПАНЕЛЬ С КОМПЛЕКСОМ GARMIN G1000 (нажмите для увеличения)"
+              "src": "assets/fig_panel_g1000_2.png",
+              "text": "7.4 ПРИБОРНАЯ ПАНЕЛЬ С G1000 — ОСНОВНЫЕ ИНДИКАТОРЫ (нажмите для увеличения)"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_panel_sed_med.png",
+              "text": "7.4 ПРИБОРНАЯ ПАНЕЛЬ С SED, MED И WHITE WIRE (нажмите для увеличения)"
             }
           ]
         }
@@ -1569,6 +1599,16 @@ window.AFM_CH5_CH9 = [
               "text": "The backs of the rear seats can be laid forward after pulling upwards on the knob of the locking bolt. If front seats with adjustable backrests are installed (OÄM 40-252 or OÄM 40-375), the angle of the backrest, and the lumbar support, can be adjusted for best comfort. The backrest control lever is situated on the outboard side of the backrest if OÄM 40-252 is installed. The backrest release button in the case of OÄM 40-375, is situated on the upper side of the seat´s side frame."
             },
             {
+              "type": "figure",
+              "src": "assets/fig_seat_hydrolok.png",
+              "text": "7.6 ADJUSTABLE BACKREST SEAT — HYDROLOK OÄM 40-375 (Tap to zoom)"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_seat_oam252.png",
+              "text": "7.6 ADJUSTABLE BACKREST SEAT — OÄM 40-252 (Tap to zoom)"
+            },
+            {
               "type": "p",
               "text": "However, during take-off, landing and emergency landings, the backrests must be fixed in the upright position designated by a placard on the roll-over bar. The lumbar support can be adjusted by operating the lumbar support lever mounted on the outboard side of the seat pan."
             },
@@ -1609,6 +1649,16 @@ window.AFM_CH5_CH9 = [
             {
               "type": "p",
               "text": "Спинки задних кресел можно сложить вперед, для чего сначала необходимо потянуть вверх головку стопорного болта. Если установлены сид ения с регулируемыми сп инками ( по доработке OÄМ 40-252), угол кронштейна может быть отрегулирован для более удобного порложения. Рычаг спинки кресла расположен на внешней стороне спинки. Тем не менее , во время взлета , посадки и аварийной посадки спинки кресел должны быть зафикси рованы в вертикальном положении, как показано на трафарете на дуге безопасности."
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_seat_hydrolok.png",
+              "text": "7.6 КРЕСЛО С РЕГУЛИРУЕМОЙ СПИНКОЙ — HYDROLOK OÄM 40-375 (нажмите для увеличения)"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_seat_oam252.png",
+              "text": "7.6 КРЕСЛО С РЕГУЛИРУЕМОЙ СПИНКОЙ — OÄM 40-252 (нажмите для увеличения)"
             },
             {
               "type": "caution",
@@ -1703,6 +1753,11 @@ window.AFM_CH5_CH9 = [
               "text": "7.8.3 EMERGENCY AXE"
             },
             {
+              "type": "figure",
+              "src": "assets/fig_emerg_axe.png",
+              "text": "7.8.3 EMERGENCY AXE INSTALLATION — OÄM 40-326 (Tap to zoom)"
+            },
+            {
               "type": "p",
               "text": "If OÄM 40-326 is incorporated with an emergency axe or on the floor panel under the co-pilot’s seat (see Figure below). If the canopy can not be opened in case of an emergency use the emergency axe to break through the canopy."
             },
@@ -1719,6 +1774,11 @@ window.AFM_CH5_CH9 = [
               "text": "7.8.4 EMERGENCY EGRESS HAMMER"
             },
             {
+              "type": "figure",
+              "src": "assets/fig_emerg_hammer.png",
+              "text": "7.8.4 EMERGENCY EGRESS HAMMER — OÄM 40-401 (Tap to zoom)"
+            },
+            {
               "type": "p",
               "text": "If OÄM 40-401 is incorporated, the emergency egress hammer is installed on the floor panel under the co-pilot’s seat. If the canopy cannot be opened in case of an emergency, use the emergency egress hammer to break through the canopy."
             },
@@ -1733,6 +1793,11 @@ window.AFM_CH5_CH9 = [
             {
               "type": "h3",
               "text": "7.8.5 FIRE EXTINGUISHER"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_fire_ext.png",
+              "text": "7.8.5 PORTABLE FIRE EXTINGUISHER INSTALLATION (Tap to zoom)"
             },
             {
               "type": "p",
@@ -1769,12 +1834,27 @@ window.AFM_CH5_CH9 = [
               "text": "Перед запуском двигателя дверь необходимо закрыть и зафиксировать, но не запирать на ключ. Чтобы обеспечить возможность аварийной эвакуации снаружи, запрещается перед полетом запирать дверь на ключ. Floor Panel Аварийный топор По рекомендации OÄМ 40-326 на панели пола под креслом пилота размещается аварийный топор (см. рисунок ниже). Аварийный топор используется для вырубания фонаря в аварийной ситуации, когда открыть фонарь невозможно."
             },
             {
+              "type": "figure",
+              "src": "assets/fig_emerg_axe.png",
+              "text": "7.8.3 РАЗМЕЩЕНИЕ АВАРИЙНОГО ТОПОРА — OÄM 40-326 (нажмите для увеличения)"
+            },
+            {
               "type": "warning",
               "text": "При пользовании аварийным топором не допускать нанесения травм другим людям."
             },
             {
               "type": "warning",
               "text": "Остерегаться острых краев разбитого фонаря и осколков. топор Пол Аварийный топор"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_emerg_hammer.png",
+              "text": "7.8.4 АВАРИЙНЫЙ МОЛОТОК — OÄM 40-401 (нажмите для увеличения)"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_fire_ext.png",
+              "text": "7.8.5 РАЗМЕЩЕНИЕ ОГНЕТУШИТЕЛЯ В КАБИНЕ (нажмите для увеличения)"
             }
           ]
         }
@@ -1890,6 +1970,11 @@ window.AFM_CH5_CH9 = [
               "text": "7.9.3  PROPELLER"
             },
             {
+              "type": "figure",
+              "src": "assets/fig_prop_rpm.png",
+              "text": "7.9.3 PROPELLER SETPOINT CURVE — POWER LEVER [%] vs RPM (Tap to zoom)"
+            },
+            {
               "type": "p",
               "text": "An mt-Propeller MTV-6-R/190-69 hydraulically regulated 3-bladed constant speed propeller is installed. The propeller has wood-composite blades with fiber-reinforced plastic coating and metal leading edge protection; in the region of the propeller hub the leading edge is coated with adhesive PU tape. These blades combine the lowest weight whilst minimizing vibration."
             },
@@ -1966,6 +2051,11 @@ window.AFM_CH5_CH9 = [
               "text": "(b) Fuel Valve"
             },
             {
+              "type": "figure",
+              "src": "assets/fig_fuel_qty_ind.png",
+              "text": "7.9.4 NORMAL vs EMERGENCY FUEL SUPPLY & TRANSFER FLOW (Tap to zoom)"
+            },
+            {
               "type": "p",
               "text": "The fuel valve is located at the center console. The selectable positions are NORMAL, EMERGENCY and OFF. The desired position is reached by turning the valve handle while pulling up the safety latch on the valve handle. This is to ensure that a selection is not made unintentionally."
             },
@@ -2014,6 +2104,11 @@ window.AFM_CH5_CH9 = [
               "text": "(e) Alternate Means For Fuel Quantity Indication"
             },
             {
+              "type": "figure",
+              "src": "assets/fig_fuel_dipstick.png",
+              "text": "7.9.4(e) FUEL QUANTITY MEASURING DEVICE — STANDARD & LONG RANGE (Tap to zoom)"
+            },
+            {
               "type": "p",
               "text": "The alternate means for fuel quantity indication allows the fuel quantity in the tank to be determined during the pre-flight inspection. It functions according to the principle of communicating containers. The fuel quantity measuring device has a recess which fits the airfoil of the wing."
             },
@@ -2032,6 +2127,11 @@ window.AFM_CH5_CH9 = [
             {
               "type": "h4",
               "text": "(f) Alternate Means for Fuel Quantity Indication with Fuel Indicator II"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_fuel_ind2.png",
+              "text": "7.9.4(f) FUEL QUANTITY INDICATOR II WITH PITCH PROTRACTOR (Tap to zoom)"
             },
             {
               "type": "p",
@@ -2170,6 +2270,11 @@ window.AFM_CH5_CH9 = [
               "text": "7.9.3 ВОЗДУШНЫЙ  ВИНТ"
             },
             {
+              "type": "figure",
+              "src": "assets/fig_prop_rpm.png",
+              "text": "7.9.3 ХАРАКТЕРИСТИКА РЕГУЛЯТОРА ОБОРОТОВ ВИНТА (нажмите для увеличения)"
+            },
+            {
               "type": "p",
               "text": "На самолете установлен трехлопастной воздушный винт mt-Propeller МTV-6-R/190-69 с постоянным числом оборотов и с гидравлической системой регулировки шага. Воздушный винт оснащен деревянно-композитными лопастями с обшивкой из пластмассы, армированной волокном, и металлической оковкой; в области втулки воздушного винта передняя кромка лопасти имеет покрытие из липкой полиуретановой ленты. Такая конструкция лопасти позволяет обеспечить минимальную массу и сократить до минимума вибрацию."
             },
@@ -2216,6 +2321,11 @@ window.AFM_CH5_CH9 = [
             {
               "type": "p",
               "text": "Если перекачка топлива при помощи насоса перекачки по какой-либо причине невозможна, забор топлива может осуществляться непосредственно из резервного бака (бака в правом крыле), для чего необходимо установить топливный кран в положение EMERGENCY (аварийная ситуация). Поскольку магистраль слива из резервного бака идет в основной бак (бак в левом крыле), будет происходить перекачка топлива из правого бака в левый."
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_fuel_qty_ind.png",
+              "text": "7.9.4 ПОДАЧА И ПЕРЕКАЧКА ТОПЛИВА В РЕЖИМАХ NORMAL И EMERGENCY (нажмите для увеличения)"
             },
             {
               "type": "p",
@@ -2272,6 +2382,11 @@ window.AFM_CH5_CH9 = [
             {
               "type": "note",
               "text": "Когда количество топлива по показаниям топливомера равно 14 ам. галл, фактическое количество топлива необходимо определять с использованием резервных средств индикации количества топлива. Если фактическое количество топлива с использованием резервных средств не определено, при планировании полета количество топлива принять равным 14 ам. галл. Резервные средства индикации количества топлива Резервные средства замера количества топлива позволяют определить количество топлива в баке в ходе предполетной проверки. Они работаю т по принципу сообщающихся сосудов. Устройство измерения уровня топлива имеет углубление, соответствующее аэродинамическому профилю крыла."
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_fuel_dipstick.png",
+              "text": "7.9.4(e) МЕРНАЯ ТРУБКА ЗАМЕРА КОЛИЧЕСТВА ТОПЛИВА (нажмите для увеличения)"
             },
             {
               "type": "p",
@@ -2350,6 +2465,11 @@ window.AFM_CH5_CH9 = [
               "type": "figure",
               "src": "assets/fig_fuel_lr.png",
               "text": "7.9.4 ТОПЛИВНАЯ СИСТЕМА — БАКИ УВЕЛИЧЕННОЙ ЁМКОСТИ (нажмите для увеличения)"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_fuel_ind2.png",
+              "text": "7.9.4(f) УКАЗАТЕЛЬ КОЛИЧЕСТВА ТОПЛИВА II С УГЛОМЕРОМ ТАНГАЖА (нажмите для увеличения)"
             }
           ]
         }
@@ -2996,6 +3116,11 @@ window.AFM_CH5_CH9 = [
               "text": "8.4.2  GROUND HANDLING WITH TOW BAR"
             },
             {
+              "type": "figure",
+              "src": "assets/fig_towbar_1.png",
+              "text": "8.4.2 TOW BAR ATTACHMENT TO NOSE WHEEL FAIRING (Tap to zoom)"
+            },
+            {
               "type": "p",
               "text": "For pushing or pulling the airplane on the ground, it is recommended to use the tow bar which is available from the manufacturer. The tow bar is bent apart and engaged in the appropriate holes in the nose wheel fairing as shown on the picture below. The arresting knob must be fully engaged."
             },
@@ -3026,6 +3151,11 @@ window.AFM_CH5_CH9 = [
             {
               "type": "h4",
               "text": "(a) Control Surfaces Gust Lock"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_gust_lock.png",
+              "text": "8.4.3(a) CONTROL SURFACES GUST LOCK INSTALLATION (Tap to zoom)"
             },
             {
               "type": "p",
@@ -3106,6 +3236,11 @@ window.AFM_CH5_CH9 = [
             {
               "type": "p",
               "text": "The horizontal stabilizer must be stored flat on the trailer and secured with straps, or in an upright position sitting on the leading edge on a profiled surface. All storing surfaces must be upholstered with felt or cellular rubber."
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_towbar_2.png",
+              "text": "8.4.2 TOW BAR ENGAGEMENT DETAIL (Tap to zoom)"
             }
           ],
           "ru": [
@@ -3120,6 +3255,11 @@ window.AFM_CH5_CH9 = [
             {
               "type": "h3",
               "text": "8.4.2 НАЗЕМНОЕ ОБСЛУЖИВАНИЕ С ИСПОЛЬЗОВАНИЕМ  БУКСИРОВОЧНОГО  ВОДИЛА"
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_towbar_1.png",
+              "text": "8.4.2 КРЕПЛЕНИЕ БУКСИРОВОЧНОГО ВОДИЛА К ОБТЕКАТЕЛЮ ПОШ (нажмите для увеличения)"
             },
             {
               "type": "p",
@@ -3152,6 +3292,11 @@ window.AFM_CH5_CH9 = [
             {
               "type": "p",
               "text": "-38oC (-36.4F), убедитесь, что соотношение дистиллированной воды и охлаждающего агента в смеси составляет 40% на 60%. Если установлена система обогрева аккумулятора (по OÄМ 40-363), рекомендуется пользоваться этой системой при стоянке самолета в условиях температуры наружного воздуха ниже 0оС (32оF) Стопор рулевых поверхностей У изготовителя можно приобрести стопор рулевых поверхностей, который можно использовать для стопорения рычагов управления основных рулей. Стопор рулевых поверхностей рекомендуется устанавливать при парковке самолета на стоянке вне ангара, в противном случае при сильном попутном ветре рулевые поверхности могут биться об упоры. Это может привести к чрезмерному износу или повреждению поверхностей."
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_gust_lock.png",
+              "text": "8.4.3(a) УСТАНОВКА СТОПОРА РУЛЕВЫХ ПОВЕРХНОСТЕЙ (нажмите для увеличения)"
             },
             {
               "type": "warning",
@@ -3204,6 +3349,11 @@ window.AFM_CH5_CH9 = [
             {
               "type": "p",
               "text": "Крылья необходимо надежно закрепить для предотвращения их смещения назад. 3. Стабилизатор: Стабилизатор необходимо перевозить на трейлере в горизонтальном положении, закрепив его ремнями, или в вертикальном положении, установив его на переднюю кромку в профиле. Все поверхности должны быть оббиты войлоком или пористой резиной."
+            },
+            {
+              "type": "figure",
+              "src": "assets/fig_towbar_2.png",
+              "text": "8.4.2 ФИКСАЦИЯ БУКСИРОВОЧНОГО ВОДИЛА (нажмите для увеличения)"
             }
           ]
         }
@@ -3420,64 +3570,186 @@ window.AFM_CH5_CH9 = [
           "en": "INTRODUCTION",
           "ru": "ВВЕДЕНИЕ"
         },
-        "rev": "REV 4 (EN) / РЕД. 3 (RU)",
-        "bilingualBlocks": {
-          "en": [
-            {
-              "type": "p",
-              "text": "Chapter 9 contains information concerning additional (optional) equipment of the DA 40 NG. Unless otherwise stated, the procedures given in the Supplements must be applied in addition to the procedures given in the main part of the Airplane Flight Manual."
-            },
-            {
-              "type": "p",
-              "text": "All approved supplements are listed in the List of Supplements in this Chapter. The Airplane Flight Manual contains exactly those Supplements which correspond to the installed equipment according to the Equipment Inventory of Section 6.5."
-            },
-            {
-              "type": "note",
-              "text": "The listed Supplements cannot be installed in any arbitrary combination."
-            }
-          ],
-          "ru": [
-            {
-              "type": "p",
-              "text": "В разделе 9 приводится документация о дополнительном (устанавливаемом по отдельному заказу) оборудовании самолета DA 40 NG. Если не указано иное, процедуры, приведенные в Дополнениях, должны выполняться дополнительно к процедурам, приведенным в основной части Руководства по летной эксплуатации."
-            },
-            {
-              "type": "p",
-              "text": "Все утвержденные Дополнения перечислены в Перечне дополнений в данном разделе. В Руководство по летной эксплуатации включены только те Дополнения , которые соответствует установленному на самолете оборудованию согласно Перечню установленного оборудования, в разделе 6.5."
-            },
-            {
-              "type": "note",
-              "text": "Не допускается установка оборудования из приведенного перечня Дополнений в любой произвольной конфигурации."
-            }
-          ]
-        }
+        "rev": "REV 4 — 31-DEC-2024",
+        "blocks": [
+          {
+            "type": "p",
+            "en": "Chapter 9 contains information concerning additional (optional) equipment of the DA 40 NG. Unless otherwise stated, the procedures given in the Supplements must be applied in addition to the procedures given in the main part of the Airplane Flight Manual.",
+            "ru": "В разделе 9 приводится документация о дополнительном (устанавливаемом по отдельному заказу) оборудовании самолёта DA 40 NG. Если не указано иное, процедуры, приведённые в Дополнениях, должны выполняться дополнительно к процедурам основной части Руководства по лётной эксплуатации."
+          },
+          {
+            "type": "p",
+            "en": "All approved supplements are listed in the List of Supplements in Section 9.2. The Airplane Flight Manual contains exactly those Supplements which correspond to the installed equipment according to the Equipment Inventory of Section 6.5.",
+            "ru": "Все утверждённые Дополнения перечислены в Перечне дополнений (раздел 9.2). В РЛЭ включаются именно те Дополнения, которые соответствуют установленному на борту оборудованию согласно Перечню установленного оборудования (раздел 6.5)."
+          },
+          {
+            "type": "note",
+            "en": "The listed Supplements cannot be installed in any arbitrary combination.",
+            "ru": "Не допускается установка оборудования из приведённого перечня Дополнений в любой произвольной конфигурации."
+          }
+        ]
       },
       {
         "id": "du-9-2",
         "code": "9.2",
         "title": {
-          "en": "LIST OF SUPPLEMENTS",
-          "ru": "ПЕРЕЧЕНЬ ДОПОЛНЕНИЙ"
+          "en": "LIST OF SUPPLEMENTS (REV. 4 COMPLETE — 23 SUPPLEMENTS)",
+          "ru": "ПЕРЕЧЕНЬ ДОПОЛНЕНИЙ (ПОЛНЫЙ СПИСОК РЕД. 4 — 23 ДОПОЛНЕНИЯ)"
         },
-        "rev": "REV 4 (EN) / РЕД. 3 (RU)",
-        "bilingualBlocks": {
-          "en": [
-            {
-              "type": "p",
-              "text": "Airplane S/N: Registration: Date: Sup. No. Title Rev. No. Date Applicable YES NO A01 Garmin G1000 Avionics System 2 08 Apr 2015 A02 Garmin G1000 NXi Avionics System1 08 Feb 2019 A03 Intercom System PM 1000 II, PS Engineering Inc. 0 09 May 2017 A05 Conventional Cockpit DA 40 NG Club0 15 Mar 2011 A13 Autopilot System KAP 140, Bendix/King1 15 Mar 2011 A29 DA 40 NG Garmin Transponder GTX 3280 15 Mar 2011 A30 DA 40 NG Garmin COM/NAV, SL 30 0 15 Mar 2011 A33 Garmin G1000 SBAS and P-RNAV Operation 2 01 Jul 2014 E07 Operation with Ventilation Inlet Baffle1 01 Jul 2014 N017 Operation in CIS 2 17 Dec 2013 N023 Operation in Brazil 0 16 May 2022 N048 Operation in the Ukraine 0 01 Jul 2011 O01 Use of the DA 40 NG as Tow-Plane 1 01 Jul 2014 Airplane S/N: Registration: Date:"
+        "rev": "REV 4 — 31-DEC-2024",
+        "blocks": [
+          {
+            "type": "table",
+            "headers": {
+              "en": [
+                "Sup. No.",
+                "Title (AFM Rev. 4)",
+                "Rev.",
+                "Date"
+              ],
+              "ru": [
+                "№ доп.",
+                "Название (AFM Ред. 4 / РЛЭ Ред. 3)",
+                "Ред.",
+                "Дата"
+              ]
             },
-            {
-              "type": "p",
-              "text": "Sup. No. Title Rev. No. Date Applicable YES NO O02 Landing Gear with Large Tyres and 1280 kg Maximum Landing Mass2 01 Jul 2014 O03 Cold Weather Operation 1 01 Jul 2014 O04 Diesel Operation 0 06 Dec 2013 O09 Operation with D64-9028-11-01 Fuel Pumps 3 30 Sep 2024 S04 406MHz Emergency Locator Transmitter Artex ME 406 0 01 Apr 2010 S06 G1000 Synthetic Vision Technology 1 15 Mar 2011 S07 Recirculating Air - Cabin Cooling 7 22 Jun 2016 S10 Flight Data Logging Device 0 29 Jan 2016 S11 Garmin GTX 335R/345R Transponders with ADS-B 0 15 Apr 2019"
-            }
-          ],
-          "ru": [
-            {
-              "type": "p",
-              "text": "Серийный номер самолета: Регистрация: Дата: № доп. Название Ред. № Дата Применяется ДА НЕТ A01 Комплекс бортового радиоэлектронного оборудования Garmin G1000 1 1 июля 2014 г. □ □ A02 Система внутренней связи РМ 1000 II 0 15 марта 2011 г. □ □ A05 Кабина в комплектации DA 40 NG Club (вспомогательный индикатор параметров двигателя (SED), основной индикатор параметров двигателя (МED), панель сигнализации White Wire) 0 15 марта 2011 г. □ □ A13 Система автопилота Bendix/King KAP 140 1 15 марта 2011г. □ □ A29 Ответчик Garmin GTX 328 0 15 марта 2011г. □ □ A30 Приемопередатчик COМ /NAV Garmin УМ 30 0 15 марта 2011г. □ □ А33 Комплекс бортового радиоэлектронного оборудования Garmin G1000, со спутниковой и зональной навигацей (SBAS, P-RNAV) 2 1 июля 2014 г. □ □ E07 Заслонка забора свежего воздуха (зимой) 1 1 июля 2014 г. □ □ S04 Аварийный передатчик ELT ME 406 0 01 апреля 2010 г. □ □ S06 Система трехмерного изображения Synthetic Vision для комплекса G1000 1 15 марта 2011г. □ □ S07 Система вентиляции и охлаждения кабины с рециркуляцией воздуха 5 1 июля 2014 г. □ □ О01 Использование DA40NG в качестве буксира 1 1 июля 2014 г. □ □ Серийный номер самолета: Регистрация: Дата: № доп. Название Ред. № Дата Применяется ДА НЕТ О02 Шасси с колесами и шинами на колесах большего размера для максимального посадочно веса 1280 кг 2 1 июля 2014 г. □ □ О03 Эксплуатация при минусовых температурах 1 1 июля 2014 г □ □ О04 Эксплуатация на дизеле 0 6 декабря 2013 г. □ □"
-            }
-          ]
-        }
+            "rows": [
+              [
+                "A01",
+                "Garmin G1000 Avionics System / Комплекс БРЭО Garmin G1000",
+                "2",
+                "08 Apr 2015"
+              ],
+              [
+                "A02",
+                "Garmin G1000 NXi Avionics System (Rev. 4) / Комплекс БРЭО Garmin G1000 NXi",
+                "1",
+                "08 Feb 2019"
+              ],
+              [
+                "A03",
+                "Intercom System PM 1000 II, PS Engineering Inc. / СПУ PM 1000 II",
+                "0",
+                "09 May 2017"
+              ],
+              [
+                "A05",
+                "Conventional Cockpit DA 40 NG Club / Кабина DA 40 NG Club (SED/MED/White Wire)",
+                "0",
+                "15 Mar 2011"
+              ],
+              [
+                "A13",
+                "Autopilot System KAP 140, Bendix/King / Система автопилота KAP 140",
+                "1",
+                "15 Mar 2011"
+              ],
+              [
+                "A29",
+                "DA 40 NG Garmin Transponder GTX 328 / Ответчик Garmin GTX 328",
+                "0",
+                "15 Mar 2011"
+              ],
+              [
+                "A30",
+                "DA 40 NG Garmin COM/NAV, SL 30 / Приёмопередатчик COM/NAV SL 30",
+                "0",
+                "15 Mar 2011"
+              ],
+              [
+                "A33",
+                "Garmin G1000 SBAS and P-RNAV Operation / Спутниковая и зональная навигация SBAS/P-RNAV",
+                "2",
+                "01 Jul 2014"
+              ],
+              [
+                "E07",
+                "Operation with Ventilation Inlet Baffle / Заслонка забора свежего воздуха (зимой)",
+                "1",
+                "01 Jul 2014"
+              ],
+              [
+                "N017",
+                "Operation in CIS / Эксплуатация в странах СНГ",
+                "2",
+                "17 Dec 2013"
+              ],
+              [
+                "N023",
+                "Operation in Brazil / Эксплуатация в Бразилии",
+                "0",
+                "16 May 2022"
+              ],
+              [
+                "N048",
+                "Operation in the Ukraine / Эксплуатация в Украине",
+                "0",
+                "01 Jul 2011"
+              ],
+              [
+                "O01",
+                "Use of the DA 40 NG as Tow-Plane / Использование DA 40 NG в качестве буксировщика",
+                "1",
+                "01 Jul 2014"
+              ],
+              [
+                "O02",
+                "Landing Gear with Large Tyres and 1280 kg Maximum Landing Mass / Шасси с большими шинами и MLM 1280 кг",
+                "2",
+                "01 Jul 2014"
+              ],
+              [
+                "O03",
+                "Cold Weather Operation / Эксплуатация при минусовых температурах",
+                "1",
+                "01 Jul 2014"
+              ],
+              [
+                "O04",
+                "Diesel Operation / Эксплуатация на дизельном топливе",
+                "0",
+                "06 Dec 2013"
+              ],
+              [
+                "O09",
+                "Operation with D64-9028-11-01 Fuel Pumps (Rev. 4) / Топливные насосы D64-9028-11-01",
+                "3",
+                "30 Sep 2024"
+              ],
+              [
+                "S04",
+                "406 MHz Emergency Locator Transmitter Artex ME 406 / Аварийный маяк ELT ME 406",
+                "0",
+                "01 Apr 2010"
+              ],
+              [
+                "S06",
+                "G1000 Synthetic Vision Technology / Система синтетического видения Synthetic Vision (SVT)",
+                "1",
+                "15 Mar 2011"
+              ],
+              [
+                "S07",
+                "Recirculating Air - Cabin Cooling / Система вентиляции и охлаждения кабины с рециркуляцией",
+                "7",
+                "22 Jun 2016"
+              ],
+              [
+                "S10",
+                "Flight Data Logging Device (Rev. 4) / Регистратор полётных данных",
+                "0",
+                "29 Jan 2016"
+              ],
+              [
+                "S11",
+                "Garmin GTX 335R/345R Transponders with ADS-B (Rev. 4) / Ответчики GTX 335R/345R с ADS-B",
+                "0",
+                "15 Apr 2019"
+              ]
+            ]
+          }
+        ]
       }
     ]
   }

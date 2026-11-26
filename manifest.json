@@ -1,13 +1,13 @@
 {
-  "name": "DA40 NG OLB \u2014 Electronic Flight Bag",
-  "short_name": "DA40 NG OLB",
+  "name": "DA40 NG Flight Manual & eQRH",
+  "short_name": "DA40 NG",
   "description": "Offline Operational Library Browser & eQRH for Diamond DA40 NG (AFM Rev. 4 EN/RU)",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0b0f14",
-  "theme_color": "#1a222c",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "assets/icon-192.png",
