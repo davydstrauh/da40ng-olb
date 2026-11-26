@@ -1,4 +1,4 @@
-const CACHE_NAME = 'da40ng-olb-v5.0.0';
+const CACHE_NAME = 'da40ng-olb-v6.0.0';
 const ASSETS = [
   "./",
   "./index.html",

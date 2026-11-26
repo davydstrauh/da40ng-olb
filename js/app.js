@@ -1,5 +1,6 @@
 /* ============================================================
-   DA40 NG — Apple-Style Offline Flight Manual & eQRH Engine (v5.0)
+   DA40 NG — Apple-Style Offline Flight Manual & eQRH Engine (v6.0)
+   FlySmart Chevron Breadcrumb Navigation • Per-Subitem Favorites
    San Francisco Typography • Exact Text-Selection Highlighter
    ============================================================ */
 
@@ -13,9 +14,12 @@
   const EQRH_NORMAL    = window.EQRH_NORMAL      || [];
   const GLOSSARY       = window.OLB_GLOSSARY     || {};
 
-  const UNIT_MAP = new Map();
-  const AFM_FLAT = [];
+  const CHAPTER_MAP = new Map();
+  const UNIT_MAP    = new Map();
+  const AFM_FLAT    = [];
+
   AFM_CHAPTERS.forEach(ch => {
+    CHAPTER_MAP.set(ch.id, ch);
     ch.units.forEach(u => {
       const entry = { kind: 'afm', chapter: ch, unit: u, flatIdx: AFM_FLAT.length };
       AFM_FLAT.push(entry);
@@ -71,13 +75,13 @@
     theme: 'light',
     activeLayer: 0,
     layers: [
-      { module: 'afm',  itemId: 'du-2-2',  history: ['du-2-2'],  histIdx: 0, scroll: 0 },
-      { module: 'eqrh', itemId: 'em-334',  history: ['em-334'],  histIdx: 0, scroll: 0 },
-      { module: 'sop',  itemId: 'nm-4a56', history: ['nm-4a56'], histIdx: 0, scroll: 0 }
+      { module: 'afm',  itemId: 'du-2-2',  subId: null, history: ['du-2-2'],  histIdx: 0, scroll: 0 },
+      { module: 'eqrh', itemId: 'em-334',  subId: null, history: ['em-334'],  histIdx: 0, scroll: 0 },
+      { module: 'sop',  itemId: 'nm-4a56', subId: null, history: ['nm-4a56'], histIdx: 0, scroll: 0 }
     ],
     favorites: ['du-2-2', 'du-2-5', 'em-334'],
     notes: {},
-    textHighlights: {},   // { [scopeKey]: [{ start, end, color }] }
+    textHighlights: {},
     qrhChecks: {},
     qrhBranches: {},
     deferred: []
@@ -85,29 +89,36 @@
 
   let state = JSON.parse(JSON.stringify(defaultState));
   let swStatusLabel = 'Ready';
+  let openCrumbMenuKind = null; // 'root' | 'chapter' | 'unit' | 'sub' | 'eqrh-cat' | 'eqrh-proc' | 'sop-cat' | 'sop-proc'
+  let openCrumbAnchorEl = null;
 
   function saveState() { idbSet(STORE_KEY, state); }
   function curLayer()  { return state.layers[state.activeLayer]; }
 
   // ---- DOM REFS ----
   const $ = (id) => document.getElementById(id);
-  const elSidebar       = $('sidebar');
-  const elBackdrop      = $('sidebarBackdrop');
-  const elSidebarTree   = $('sidebarTree');
-  const elSidebarFilter = $('sidebarFilter');
-  const elReaderPane    = $('readerPane');
-  const elReader        = $('readerContent');
-  const elGlossaryPop   = $('glossaryPop');
-  const elHlPopover     = $('hlPopover');
-  const elHlSep         = $('hlSep');
-  const elHlDeleteBtn   = $('hlDeleteBtn');
+  const elCrumbBar    = $('crumbBar');
+  const elCrumbMenu   = $('crumbMenu');
+  const elReaderPane  = $('readerPane');
+  const elReader      = $('readerContent');
+  const elGlossaryPop = $('glossaryPop');
+  const elHlPopover   = $('hlPopover');
+  const elHlSep       = $('hlSep');
+  const elHlDeleteBtn = $('hlDeleteBtn');
 
-  // ---- ICONS (Clean SF-Style Inline SVGs) ----
+  // ---- SF-STYLE SVG ICONS ----
   const ICO_SUN = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>`;
   const ICO_MOON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-  const ICO_STAR_OFF = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-  const ICO_STAR_ON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+  const ICO_FOLDER = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+  const ICO_CARET = `<svg class="crumb-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
   const ICO_CHECK = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const ICO_SEARCH_SM = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+
+  function starSvg(filled, size = 15) {
+    return filled
+      ? `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
+      : `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+  }
 
   // ---- HELPERS ----
   function escHtml(s) {
@@ -124,7 +135,6 @@
     return obj[state.lang] || obj.en || obj.ru || '';
   }
 
-  // Clean eQRH/SOP titles: strip redundant CAS prefix and soften shouting ALL CAPS
   const KEEP_UPPER = new Set([
     'AFM','DA','NG','VFR','NVFR','IFR','IMC','GPS','G1000','NXI','GFC','AFCS','ECU','EECU',
     'FADEC','RPM','IAS','CAS','TAS','KIAS','KCAS','KTAS','ISA','MSL','AGL','OAT','QNH','CG',
@@ -142,7 +152,6 @@
       const esc = proc.cas.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       raw = raw.replace(new RegExp('^' + esc + '\\s*[—–\\-:]\\s*', 'i'), '');
     }
-    // Check if shouting ALL CAPS
     const letters = raw.match(/[A-Za-zА-Яа-яЁё]/g) || [];
     const upper = letters.filter(c => c === c.toUpperCase() && c !== c.toLowerCase()).length;
     if (letters.length < 4 || upper / letters.length < 0.72) return raw;
@@ -151,13 +160,10 @@
     const words = raw.split(/\s+/);
     return words.map((w, idx) => {
       const bare = w.replace(/[^A-Za-zА-Яа-яЁё0-9/ÄÖÜ-]/g, '');
-      if (!bare || KEEP_UPPER.has(bare.toUpperCase()) && (bare === bare.toUpperCase())) {
-        if (KEEP_UPPER.has(bare)) return w;
-      }
+      if (KEEP_UPPER.has(bare)) return w;
       if (/^[A-Z]+\d+$/.test(bare)) return w;
       if (isRu) {
-        if (idx === 0) return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-        return w.toLowerCase();
+        return idx === 0 ? (w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : w.toLowerCase();
       } else {
         if (idx > 0 && SMALL_EN.has(w.toLowerCase())) return w.toLowerCase();
         return w.split('-').map(p => KEEP_UPPER.has(p) ? p : (p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '')).join('-');
@@ -172,6 +178,58 @@
       if (i > 0 && SMALL_EN.has(w.toLowerCase())) return w.toLowerCase();
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     }).join(' ');
+  }
+
+  // Extract deterministic sub-items (h3 & h4) from an AFM unit
+  function getUnitSubs(unit, lang = state.lang) {
+    if (!unit) return [];
+    const blocks = unit.bilingualBlocks ? (unit.bilingualBlocks[lang] || unit.bilingualBlocks.en) : (unit.blocks || []);
+    const subs = [];
+    let idx = 0;
+    blocks.forEach((b) => {
+      if (b.type === 'h3' || b.type === 'h4') {
+        const text = (b.text !== undefined ? b.text : t(b)).trim();
+        if (text) {
+          subs.push({ id: `sub-${idx}`, level: b.type, text });
+          idx++;
+        }
+      }
+    });
+    return subs;
+  }
+
+  // Favorites helpers (supports ch:<chId>, <unitId>, <procId>, and <unitId>#<subId>)
+  function isFav(favId) {
+    return state.favorites.includes(favId);
+  }
+
+  function toggleFav(favId) {
+    if (!favId) return false;
+    const i = state.favorites.indexOf(favId);
+    if (i >= 0) {
+      state.favorites.splice(i, 1);
+      saveState();
+      return false;
+    } else {
+      state.favorites.push(favId);
+      saveState();
+      return true;
+    }
+  }
+
+  function updateFavBadgeAndStars() {
+    const cnt = state.favorites.length;
+    $('favCount').textContent = cnt;
+    $('favCount').classList.toggle('hidden', cnt === 0);
+
+    // Sync every star button currently in the DOM (crumbBar, open dropdown, reader headings)
+    document.querySelectorAll('[data-fav]').forEach(btn => {
+      const id = btn.dataset.fav;
+      const starred = isFav(id);
+      btn.classList.toggle('starred', starred);
+      const sz = btn.classList.contains('fav-toggle-btn') ? 20 : 15;
+      btn.innerHTML = starSvg(starred, sz);
+    });
   }
 
   const ABBR_KEYS = Object.keys(GLOSSARY).sort((a, b) => b.length - a.length);
@@ -195,31 +253,78 @@
   }
 
   // ---- NAVIGATION ----
-  function navigateTo(itemId, pushHist = true) {
+  function scrollToSub(subId, flash = true) {
+    if (!subId) return;
+    const target = elReader.querySelector(`[data-sub-anchor="${CSS.escape(subId)}"]`);
+    if (!target) return;
+    const top = target.offsetTop - 16;
+    elReaderPane.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    if (flash) {
+      target.classList.remove('flash-focus');
+      void target.offsetWidth;
+      target.classList.add('flash-focus');
+      setTimeout(() => target.classList.remove('flash-focus'), 1100);
+    }
+  }
+
+  function navigateTo(targetRef, pushHist = true) {
+    if (!targetRef) return;
+    closeCrumbMenu();
+    hideHlPopover();
+
+    // Handle chapter bookmark: ch:<chId>
+    if (targetRef.startsWith('ch:')) {
+      const ch = CHAPTER_MAP.get(targetRef.slice(3));
+      if (ch && ch.units.length) navigateTo(ch.units[0].id, pushHist);
+      return;
+    }
+
+    // Handle sub-section target: <unitId>#<subId>
+    let itemId = targetRef;
+    let subId = null;
+    if (targetRef.includes('#')) {
+      [itemId, subId] = targetRef.split('#');
+    }
+
     const entry = UNIT_MAP.get(itemId);
     if (!entry) return;
-    hideHlPopover();
+
     const L = curLayer();
+    const sameUnit = (L.module === entry.kind && L.itemId === itemId);
+
     L.scroll = elReaderPane.scrollTop;
     L.module = entry.kind;
     L.itemId = itemId;
+    L.subId  = subId;
+
     if (pushHist) {
       L.history = L.history.slice(0, L.histIdx + 1);
-      if (L.history[L.history.length - 1] !== itemId) {
-        L.history.push(itemId);
+      if (L.history[L.history.length - 1] !== targetRef) {
+        L.history.push(targetRef);
         L.histIdx = L.history.length - 1;
       }
     }
     saveState();
-    closeMobileSidebar();
-    renderAll();
-    elReaderPane.scrollTop = 0;
+
+    if (sameUnit && subId) {
+      renderCrumbBar();
+      scrollToSub(subId, true);
+    } else {
+      renderAll();
+      if (subId) {
+        requestAnimationFrame(() => scrollToSub(subId, true));
+      } else {
+        elReaderPane.scrollTop = 0;
+      }
+    }
   }
 
   function switchModule(mod) {
+    closeCrumbMenu();
     hideHlPopover();
     const L = curLayer();
     L.module = mod;
+    L.subId = null;
     if (mod === 'afm' && (!UNIT_MAP.get(L.itemId) || UNIT_MAP.get(L.itemId).kind !== 'afm')) {
       L.itemId = AFM_CHAPTERS[0]?.units[0]?.id || 'du-1-1';
     } else if (mod === 'eqrh' && (!UNIT_MAP.get(L.itemId) || UNIT_MAP.get(L.itemId).kind !== 'eqrh')) {
@@ -233,6 +338,7 @@
   }
 
   function switchLayer(idx) {
+    closeCrumbMenu();
     hideHlPopover();
     curLayer().scroll = elReaderPane.scrollTop;
     state.activeLayer = idx;
@@ -245,11 +351,7 @@
     const L = curLayer();
     if (L.histIdx > 0) {
       L.histIdx--;
-      const id = L.history[L.histIdx];
-      const entry = UNIT_MAP.get(id);
-      if (entry) { L.module = entry.kind; L.itemId = id; }
-      saveState();
-      renderAll();
+      navigateTo(L.history[L.histIdx], false);
     }
   }
 
@@ -257,87 +359,347 @@
     const L = curLayer();
     if (L.histIdx < L.history.length - 1) {
       L.histIdx++;
-      const id = L.history[L.histIdx];
-      const entry = UNIT_MAP.get(id);
-      if (entry) { L.module = entry.kind; L.itemId = id; }
-      saveState();
-      renderAll();
+      navigateTo(L.history[L.histIdx], false);
     }
   }
 
-  // ---- SIDEBAR ----
-  function renderSidebar() {
+  // ============================================================
+  // FLYSMART-STYLE TOP CHEVRON BREADCRUMB BAR & DROPDOWN MENUS
+  // ============================================================
+  function closeCrumbMenu() {
+    openCrumbMenuKind = null;
+    openCrumbAnchorEl = null;
+    elCrumbMenu.classList.add('hidden');
+    elCrumbBar.querySelectorAll('.crumb-wrap.is-open').forEach(el => el.classList.remove('is-open'));
+  }
+
+  function crumbSegHtml({ kind, favId = null, code = '', label = '', cas = '', casCls = '', isLast = false, zIndex = 5, isRoot = false }) {
+    const isOpen = openCrumbMenuKind === kind;
+    const cls = ['crumb-wrap', isLast ? 'is-last' : '', isOpen ? 'is-open' : ''].filter(Boolean).join(' ');
+
+    if (isRoot) {
+      return `<div class="${cls}" style="z-index:${zIndex}" data-crumb-wrap="${kind}">
+        <div class="crumb-seg">
+          <button class="crumb-folder-btn" data-crumb-open="${kind}" title="${state.lang === 'ru' ? 'Документы и разделы' : 'Documents & Modules'}">
+            ${ICO_FOLDER}
+            <span>${escHtml(label)}</span>
+            ${ICO_CARET}
+          </button>
+        </div>
+      </div>`;
+    }
+
+    const starHtml = favId
+      ? `<button class="crumb-star ${isFav(favId) ? 'starred' : ''}" data-fav="${escHtml(favId)}" title="${state.lang === 'ru' ? 'В избранное' : 'Toggle Favorite'}">${starSvg(isFav(favId), 15)}</button>`
+      : '';
+    const casHtml = cas ? `<span class="cas-pill ${casCls}">${escHtml(cas)}</span>` : '';
+    const codeHtml = code ? `<span class="crumb-code">${escHtml(code)}</span>` : '';
+
+    return `<div class="${cls}" style="z-index:${zIndex}" data-crumb-wrap="${kind}">
+      <div class="crumb-seg">
+        ${starHtml}
+        <button class="crumb-main" data-crumb-open="${kind}">
+          ${casHtml}${codeHtml}
+          <span class="crumb-text">${escHtml(label)}</span>
+          ${ICO_CARET}
+        </button>
+      </div>
+    </div>`;
+  }
+
+  function renderCrumbBar() {
     const L = curLayer();
-    const q = (elSidebarFilter.value || '').trim().toLowerCase();
-    let html = '';
+    const isRu = state.lang === 'ru';
+    const segs = [];
 
     if (L.module === 'afm') {
-      $('sidebarTitle').textContent = state.lang === 'ru' ? 'РЛЭ DA40 NG' : 'Flight Manual';
-      AFM_CHAPTERS.forEach(ch => {
-        const units = ch.units.filter(u => {
-          if (!q) return true;
-          return (u.code + ' ' + u.title.en + ' ' + u.title.ru).toLowerCase().includes(q);
+      const entry = UNIT_MAP.get(L.itemId);
+      const ch = entry?.chapter || AFM_CHAPTERS[0];
+      const u  = entry?.unit || ch?.units[0];
+      const subs = getUnitSubs(u);
+      const activeSub = subs.length
+        ? (subs.find(s => s.id === L.subId) || subs[0])
+        : null;
+
+      segs.push({ kind: 'root', isRoot: true, label: isRu ? 'РЛЭ' : 'AFM' });
+      if (ch) {
+        segs.push({
+          kind: 'chapter',
+          favId: `ch:${ch.id}`,
+          code: isRu ? `Гл. ${ch.code}` : `Ch. ${ch.code}`,
+          label: t(ch.title)
         });
-        if (!units.length) return;
-        html += `<div class="tree-group-hdr">${escHtml(ch.code)}. ${escHtml(t(ch.title))}</div>`;
-        units.forEach(u => {
-          const act = u.id === L.itemId ? 'active' : '';
-          html += `<div class="tree-item ${act}" data-nav="${u.id}">
-            <span class="tree-code">${escHtml(u.code)}</span>
-            <span class="tree-label">${escHtml(t(u.title))}</span>
-          </div>`;
+      }
+      if (u) {
+        segs.push({
+          kind: 'unit',
+          favId: u.id,
+          code: u.code,
+          label: t(u.title)
         });
-      });
+      }
+      if (activeSub) {
+        segs.push({
+          kind: 'sub',
+          favId: `${u.id}#${activeSub.id}`,
+          label: activeSub.text
+        });
+      }
     } else if (L.module === 'eqrh') {
-      $('sidebarTitle').textContent = 'eQRH';
-      const renderList = (title, cls, arr, casCls) => {
-        const items = arr.filter(p => {
-          if (!q) return true;
-          return (p.code + ' ' + (p.cas || '') + ' ' + p.title.en + ' ' + p.title.ru + ' ' + p.group).toLowerCase().includes(q);
-        });
-        if (!items.length) return;
-        html += `<div class="tree-group-hdr ${cls}">${escHtml(title)}</div>`;
-        items.forEach(p => {
-          const act = p.id === L.itemId ? 'active' : '';
-          const casHtml = p.cas ? `<span class="cas-pill ${casCls}">${escHtml(p.cas)}</span>` : '';
-          html += `<div class="tree-item ${act}" data-nav="${p.id}">
-            <span class="tree-code">${escHtml(p.code)}</span>
-            <span class="tree-label">${casHtml}${escHtml(cleanProcTitle(p, true))}</span>
-          </div>`;
-        });
-      };
-      renderList(state.lang === 'ru' ? 'Аварийные ситуации (Гл. 3)' : 'Emergency (Ch. 3)', 'grp-red', EQRH_EMERGENCY, 'cas-red');
-      renderList(state.lang === 'ru' ? 'Особые случаи (Гл. 4B)' : 'Abnormal (Ch. 4B)', 'grp-amber', EQRH_ABNORMAL, 'cas-amber');
-    } else if (L.module === 'sop') {
-      $('sidebarTitle').textContent = state.lang === 'ru' ? 'Чеклисты' : 'Checklists';
-      const items = EQRH_NORMAL.filter(p => {
-        if (!q) return true;
-        return (p.code + ' ' + p.title.en + ' ' + p.title.ru + ' ' + p.group).toLowerCase().includes(q);
+      const entry = UNIT_MAP.get(L.itemId);
+      const p = entry?.proc || EQRH_EMERGENCY[0];
+      const cat = entry?.cat || 'EMERGENCY';
+      segs.push({ kind: 'root', isRoot: true, label: 'eQRH' });
+      segs.push({
+        kind: 'eqrh-cat',
+        label: cat === 'EMERGENCY'
+          ? (isRu ? 'Аварийные (Гл. 3)' : 'Emergency (Ch. 3)')
+          : (isRu ? 'Особые случаи (Гл. 4B)' : 'Abnormal (Ch. 4B)')
       });
-      if (items.length) {
-        html += `<div class="tree-group-hdr grp-green">${state.lang === 'ru' ? 'Нормальная эксплуатация (Гл. 4A)' : 'Normal Procedures (Ch. 4A)'}</div>`;
-        items.forEach(p => {
-          const act = p.id === L.itemId ? 'active' : '';
-          html += `<div class="tree-item ${act}" data-nav="${p.id}">
-            <span class="tree-code">${escHtml(p.code)}</span>
-            <span class="tree-label">${escHtml(cleanProcTitle(p, false))}</span>
-          </div>`;
+      if (p) {
+        segs.push({
+          kind: 'eqrh-proc',
+          favId: p.id,
+          cas: p.cas || '',
+          casCls: cat === 'EMERGENCY' ? 'cas-red' : 'cas-amber',
+          code: p.code,
+          label: cleanProcTitle(p, true)
+        });
+      }
+    } else if (L.module === 'sop') {
+      const entry = UNIT_MAP.get(L.itemId);
+      const p = entry?.proc || EQRH_NORMAL[0];
+      segs.push({ kind: 'root', isRoot: true, label: isRu ? 'Чеклисты' : 'Checklists' });
+      segs.push({
+        kind: 'sop-cat',
+        label: p ? cleanGroupName(p.group) : (isRu ? 'Нормальная эксплуатация' : 'Normal Procedures')
+      });
+      if (p) {
+        segs.push({
+          kind: 'sop-proc',
+          favId: p.id,
+          code: p.code,
+          label: cleanProcTitle(p, false)
         });
       }
     } else {
-      $('sidebarTitle').textContent = state.lang === 'ru' ? 'Настройки' : 'Settings';
-      html = `<div class="tree-item active"><span class="tree-label">${state.lang === 'ru' ? 'Данные и резервная копия' : 'Data & Backup'}</span></div>`;
+      segs.push({ kind: 'root', isRoot: true, label: isRu ? 'Настройки' : 'Settings' });
+      segs.push({ kind: 'tools-info', label: isRu ? 'Данные и резервная копия' : 'Data & Backup' });
     }
 
-    elSidebarTree.innerHTML = html || `<div class="empty-state">${state.lang === 'ru' ? 'Ничего не найдено' : 'No matching sections'}</div>`;
+    elCrumbBar.innerHTML = segs.map((s, idx) => crumbSegHtml({
+      ...s,
+      isLast: idx === segs.length - 1,
+      zIndex: 10 - idx
+    })).join('');
   }
 
-  // ---- AFM RENDERING (Apple Books Editorial Style + Text Highlight Scopes) ----
+  function renderCrumbMenuContent(kind, filterQuery = '') {
+    const L = curLayer();
+    const isRu = state.lang === 'ru';
+    const q = filterQuery.trim().toLowerCase();
+
+    let title = '';
+    let showFilter = false;
+    let rowsHtml = '';
+
+    const buildRow = ({ nav = '', mod = '', favId = '', code = '', label = '', cas = '', casCls = '', meta = '', active = false, extraCls = '' }) => {
+      const starHtml = favId
+        ? `<button class="cm-star ${isFav(favId) ? 'starred' : ''}" data-fav="${escHtml(favId)}" title="${isRu ? 'В избранное' : 'Favorite'}">${starSvg(isFav(favId), 15)}</button>`
+        : '';
+      const casHtml = cas ? `<span class="cas-pill ${casCls}">${escHtml(cas)}</span>` : '';
+      const codeHtml = code ? `<span class="cm-code">${escHtml(code)}</span>` : '';
+      const metaHtml = meta ? `<span class="cm-meta">${escHtml(meta)}</span>` : '';
+      const chkHtml = active ? `<span class="cm-check">${ICO_CHECK}</span>` : '';
+      const actAttr = mod ? `data-cm-mod="${escHtml(mod)}"` : `data-cm-nav="${escHtml(nav)}"`;
+      return `<div class="cm-row ${active ? 'active' : ''} ${extraCls}" ${actAttr}>
+        ${starHtml}
+        <div class="cm-body">${codeHtml}<span class="cm-label">${casHtml}${escHtml(label)}</span></div>
+        ${metaHtml}${chkHtml}
+      </div>`;
+    };
+
+    if (kind === 'root') {
+      title = isRu ? 'Документы DA40 NG' : 'DA40 NG Library';
+      const mods = [
+        { mod: 'afm',   label: isRu ? 'РЛЭ — Руководство по лётной эксплуатации' : 'AFM — Airplane Flight Manual', meta: `${AFM_FLAT.length}` },
+        { mod: 'eqrh',  label: isRu ? 'eQRH — Аварийные и особые случаи' : 'eQRH — Emergency & Abnormal', meta: `${EQRH_EMERGENCY.length + EQRH_ABNORMAL.length}` },
+        { mod: 'sop',   label: isRu ? 'Чеклисты — Нормальная эксплуатация' : 'Checklists — Normal Procedures', meta: `${EQRH_NORMAL.length}` },
+        { mod: 'tools', label: isRu ? 'Настройки, бэкап и кэш' : 'Settings, Backup & Cache', meta: '' }
+      ];
+      rowsHtml = mods.map(m => buildRow({ mod: m.mod, label: m.label, meta: m.meta, active: L.module === m.mod })).join('');
+    } else if (kind === 'chapter') {
+      title = isRu ? 'Главы РЛЭ' : 'AFM Chapters';
+      const curChId = UNIT_MAP.get(L.itemId)?.chapter?.id;
+      rowsHtml = AFM_CHAPTERS.map(ch => buildRow({
+        nav: ch.units[0]?.id || '',
+        favId: `ch:${ch.id}`,
+        code: ch.code,
+        label: t(ch.title),
+        meta: `${ch.units.length}`,
+        active: ch.id === curChId
+      })).join('');
+    } else if (kind === 'unit') {
+      const ch = UNIT_MAP.get(L.itemId)?.chapter || AFM_CHAPTERS[0];
+      title = isRu ? `Глава ${ch.code} · ${t(ch.title)}` : `Chapter ${ch.code} · ${t(ch.title)}`;
+      showFilter = ch.units.length > 6;
+      const units = ch.units.filter(u => !q || `${u.code} ${u.title.en} ${u.title.ru}`.toLowerCase().includes(q));
+      rowsHtml = units.map(u => {
+        const subCnt = getUnitSubs(u).length;
+        return buildRow({
+          nav: u.id,
+          favId: u.id,
+          code: u.code,
+          label: t(u.title),
+          meta: subCnt > 0 ? `${subCnt}` : '',
+          active: u.id === L.itemId
+        });
+      }).join('');
+    } else if (kind === 'sub') {
+      const u = UNIT_MAP.get(L.itemId)?.unit;
+      const subs = getUnitSubs(u);
+      title = isRu ? `Подпункты · ${u?.code || ''}` : `Sub-sections · ${u?.code || ''}`;
+      showFilter = subs.length > 7;
+      const activeSubId = L.subId || subs[0]?.id;
+      const filtered = subs.filter(s => !q || s.text.toLowerCase().includes(q));
+      rowsHtml = filtered.map(s => buildRow({
+        nav: `${u.id}#${s.id}`,
+        favId: `${u.id}#${s.id}`,
+        label: s.text,
+        active: s.id === activeSubId,
+        extraCls: s.level === 'h4' ? 'is-sub-h4' : ''
+      })).join('');
+    } else if (kind === 'eqrh-cat') {
+      const curCat = UNIT_MAP.get(L.itemId)?.cat || 'EMERGENCY';
+      title = isRu ? 'Категории eQRH' : 'eQRH Categories';
+      rowsHtml =
+        buildRow({ nav: EQRH_EMERGENCY[0]?.id, label: isRu ? 'Аварийные ситуации (Глава 3)' : 'Emergency Procedures (Ch. 3)', meta: `${EQRH_EMERGENCY.length}`, active: curCat === 'EMERGENCY' }) +
+        buildRow({ nav: EQRH_ABNORMAL[0]?.id,  label: isRu ? 'Особые случаи полёта (Глава 4B)' : 'Abnormal Procedures (Ch. 4B)', meta: `${EQRH_ABNORMAL.length}`, active: curCat === 'ABNORMAL' });
+    } else if (kind === 'eqrh-proc') {
+      const curCat = UNIT_MAP.get(L.itemId)?.cat || 'EMERGENCY';
+      const arr = curCat === 'EMERGENCY' ? EQRH_EMERGENCY : EQRH_ABNORMAL;
+      const casCls = curCat === 'EMERGENCY' ? 'cas-red' : 'cas-amber';
+      title = curCat === 'EMERGENCY'
+        ? (isRu ? 'Аварийные процедуры (Гл. 3)' : 'Emergency Procedures (Ch. 3)')
+        : (isRu ? 'Особые случаи (Гл. 4B)' : 'Abnormal Procedures (Ch. 4B)');
+      showFilter = true;
+      const filtered = arr.filter(p => !q || `${p.code} ${p.cas || ''} ${p.title.en} ${p.title.ru} ${p.group}`.toLowerCase().includes(q));
+      let lastGrp = null;
+      filtered.forEach(p => {
+        if (p.group !== lastGrp) {
+          lastGrp = p.group;
+          rowsHtml += `<div class="cm-group-hdr ${curCat === 'EMERGENCY' ? 'grp-red' : 'grp-amber'}">${escHtml(cleanGroupName(p.group))}</div>`;
+        }
+        rowsHtml += buildRow({
+          nav: p.id,
+          favId: p.id,
+          code: p.code,
+          cas: p.cas || '',
+          casCls,
+          label: cleanProcTitle(p, true),
+          active: p.id === L.itemId
+        });
+      });
+    } else if (kind === 'sop-cat') {
+      title = isRu ? 'Этапы полёта (Глава 4A)' : 'Flight Phases (Ch. 4A)';
+      const seen = new Map();
+      EQRH_NORMAL.forEach(p => {
+        if (!seen.has(p.group)) seen.set(p.group, { firstId: p.id, count: 0 });
+        seen.get(p.group).count++;
+      });
+      const curGrp = UNIT_MAP.get(L.itemId)?.proc?.group;
+      seen.forEach((info, grp) => {
+        rowsHtml += buildRow({
+          nav: info.firstId,
+          label: cleanGroupName(grp),
+          meta: `${info.count}`,
+          active: grp === curGrp
+        });
+      });
+    } else if (kind === 'sop-proc') {
+      title = isRu ? 'Нормальные чеклисты (Гл. 4A)' : 'Normal Checklists (Ch. 4A)';
+      showFilter = true;
+      const filtered = EQRH_NORMAL.filter(p => !q || `${p.code} ${p.title.en} ${p.title.ru} ${p.group}`.toLowerCase().includes(q));
+      let lastGrp = null;
+      filtered.forEach(p => {
+        if (p.group !== lastGrp) {
+          lastGrp = p.group;
+          rowsHtml += `<div class="cm-group-hdr grp-green">${escHtml(cleanGroupName(p.group))}</div>`;
+        }
+        rowsHtml += buildRow({
+          nav: p.id,
+          favId: p.id,
+          code: p.code,
+          label: cleanProcTitle(p, false),
+          active: p.id === L.itemId
+        });
+      });
+    }
+
+    const searchInputHtml = showFilter
+      ? `<div class="cm-search-wrap">${ICO_SEARCH_SM}<input type="search" id="cmFilterInput" value="${escHtml(filterQuery)}" placeholder="${isRu ? 'Фильтр…' : 'Filter…'}"></div>`
+      : '';
+
+    const listEl = elCrumbMenu.querySelector('.cm-list');
+    if (filterQuery !== '' && listEl) {
+      // Update only list to preserve search input focus
+      listEl.innerHTML = rowsHtml || `<div class="empty-state">${isRu ? 'Ничего не найдено' : 'No matches'}</div>`;
+      return;
+    }
+
+    elCrumbMenu.innerHTML = `
+      <div class="cm-head">
+        <div class="cm-title">${escHtml(title)}</div>
+        ${searchInputHtml}
+      </div>
+      <div class="cm-list">${rowsHtml || `<div class="empty-state">${isRu ? 'Ничего не найдено' : 'No matches'}</div>`}</div>`;
+
+    const inp = elCrumbMenu.querySelector('#cmFilterInput');
+    if (inp) {
+      inp.oninput = (e) => renderCrumbMenuContent(kind, e.target.value);
+    }
+
+    // Scroll active item into view inside dropdown
+    requestAnimationFrame(() => {
+      const act = elCrumbMenu.querySelector('.cm-row.active');
+      if (act) act.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  function openCrumbMenu(kind, anchorEl) {
+    if (kind === 'tools-info') return;
+    if (openCrumbMenuKind === kind) {
+      closeCrumbMenu();
+      return;
+    }
+    hideHlPopover();
+    openCrumbMenuKind = kind;
+    openCrumbAnchorEl = anchorEl;
+
+    elCrumbBar.querySelectorAll('.crumb-wrap').forEach(w => {
+      w.classList.toggle('is-open', w.dataset.crumbWrap === kind);
+    });
+
+    renderCrumbMenuContent(kind, '');
+    elCrumbMenu.classList.remove('hidden');
+
+    const rect = anchorEl.getBoundingClientRect();
+    const menuW = elCrumbMenu.offsetWidth || 360;
+    let left = rect.left;
+    if (left + menuW > window.innerWidth - 10) {
+      left = Math.max(10, window.innerWidth - menuW - 10);
+    }
+    const top = rect.bottom + 6;
+    elCrumbMenu.style.left = `${Math.round(left)}px`;
+    elCrumbMenu.style.top  = `${Math.round(top)}px`;
+  }
+
+  // ---- AFM RENDERING ----
   function renderAfmUnit(entry) {
     const u = entry.unit;
     const ch = entry.chapter;
     const blocks = u.bilingualBlocks ? (u.bilingualBlocks[state.lang] || u.bilingualBlocks.en) : (u.blocks || []);
-    const isFav = state.favorites.includes(u.id);
+    const starred = isFav(u.id);
     const chLabel = state.lang === 'ru' ? `Глава ${ch.code} · ${t(ch.title)}` : `Chapter ${ch.code} · ${t(ch.title)}`;
     const apprChip = ch.status === 'APPROVED'
       ? `<span class="status-chip chip-approved">${state.lang === 'ru' ? 'Утверждено' : 'Approved'}</span>`
@@ -345,6 +707,7 @@
 
     let scopeSeq = 0;
     const nextScope = () => `${u.id}::${state.lang}::${scopeSeq++}`;
+    let subSeq = 0;
 
     let html = `
       <header class="doc-header">
@@ -354,7 +717,7 @@
         </div>
         <div class="doc-title-row">
           <h1 class="doc-title"><span class="doc-title-code">${escHtml(u.code)}</span>${escHtml(t(u.title))}</h1>
-          <button class="fav-toggle-btn ${isFav ? 'starred' : ''}" data-fav="${escHtml(u.id)}" title="Bookmark">${isFav ? ICO_STAR_ON : ICO_STAR_OFF}</button>
+          <button class="fav-toggle-btn ${starred ? 'starred' : ''}" data-fav="${escHtml(u.id)}" title="${state.lang === 'ru' ? 'В избранное' : 'Favorite'}">${starSvg(starred, 20)}</button>
         </div>
       </header>`;
 
@@ -362,10 +725,17 @@
       if (blk.type === 'p') {
         const txt = blk.text !== undefined ? blk.text : t(blk);
         html += `<p class="du-p hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(txt)}</p>`;
-      } else if (blk.type === 'h3') {
-        html += `<h2 class="du-h3">${escHtml(blk.text !== undefined ? blk.text : t(blk))}</h2>`;
-      } else if (blk.type === 'h4') {
-        html += `<h3 class="du-h4">${escHtml(blk.text !== undefined ? blk.text : t(blk))}</h3>`;
+      } else if (blk.type === 'h3' || blk.type === 'h4') {
+        const subId = `sub-${subSeq++}`;
+        const favKey = `${u.id}#${subId}`;
+        const subStar = isFav(favKey);
+        const tag = blk.type === 'h3' ? 'h2' : 'h3';
+        const hCls = blk.type === 'h3' ? 'du-h3' : 'du-h4';
+        const txt = (blk.text !== undefined ? blk.text : t(blk)).trim();
+        html += `<div class="sub-heading-row is-${blk.type}" data-sub-anchor="${subId}">
+          <${tag} class="${hCls}">${escHtml(txt)}</${tag}>
+          <button class="sub-star-btn ${subStar ? 'starred' : ''}" data-fav="${escHtml(favKey)}" title="${state.lang === 'ru' ? 'Добавить подпункт в избранное' : 'Favorite sub-section'}">${starSvg(subStar, 15)}</button>
+        </div>`;
       } else if (blk.type === 'list') {
         const items = Array.isArray(blk.items)
           ? blk.items
@@ -383,7 +753,25 @@
         const paras = String(rawTxt).split(/\n{2,}/).filter(Boolean).map(p =>
           `<p class="hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(p)}</p>`
         ).join('');
-        html += `<div class="callout callout-${blk.type}"><span class="callout-lbl">${lblMap[blk.type]}</span>${paras}</div>`;
+        const subBullets = (blk.bullets && blk.bullets.length)
+          ? `<ul class="callout-list">` + blk.bullets.map(it =>
+              `<li class="hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(it)}</li>`
+            ).join('') + `</ul>`
+          : '';
+        const subChecks = (blk.checks && blk.checks.length)
+          ? `<div class="callout-checks">` + blk.checks.map(r =>
+              `<div class="callout-chk-row">
+                <span class="callout-chk-item hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(r.item || '')}</span>
+                <span class="callout-chk-act hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(r.action || '')}</span>
+              </div>`
+            ).join('') + `</div>`
+          : '';
+        const afterHtml = blk.afterText
+          ? String(blk.afterText).split(/\n{2,}/).filter(Boolean).map(p =>
+              `<p class="hl-scope" data-hl-scope="${nextScope()}">${linkifyAbbr(p)}</p>`
+            ).join('')
+          : '';
+        html += `<div class="callout callout-${blk.type}"><span class="callout-lbl">${lblMap[blk.type]}</span>${paras}${subBullets}${subChecks}${afterHtml}</div>`;
       } else if (blk.type === 'kv') {
         const rows = (blk.rows || []).map(r => {
           const k = typeof r.k === 'string' ? r.k : t(r.k);
@@ -443,7 +831,6 @@
       }
     });
 
-    // Previous / Next section pager
     const prev = entry.flatIdx > 0 ? AFM_FLAT[entry.flatIdx - 1] : null;
     const next = entry.flatIdx < AFM_FLAT.length - 1 ? AFM_FLAT[entry.flatIdx + 1] : null;
     html += `<nav class="doc-pager">
@@ -472,51 +859,33 @@
         <p>${linkifyAbbr(t(blk.text))}</p>
       </div>`;
     }
-    if (blk.type === 'subhead') {
-      return `<div class="qrh-subhead">${escHtml(t(blk.text))}</div>`;
-    }
+    if (blk.type === 'subhead') return `<div class="qrh-subhead">${escHtml(t(blk.text))}</div>`;
     if (blk.type === 'memory') {
       const inner = blk.steps.map(s => renderQrhStep(proc, s)).join('');
-      return `<div class="memory-box">
-        <div class="memory-title">${escHtml(t(blk.title))}</div>
-        ${inner}
-      </div>`;
+      return `<div class="memory-box"><div class="memory-title">${escHtml(t(blk.title))}</div>${inner}</div>`;
     }
-    if (blk.type === 'step') {
-      return renderQrhStep(proc, blk);
-    }
+    if (blk.type === 'step') return renderQrhStep(proc, blk);
     if (blk.type === 'table') {
       const hdrs = (blk.headers[state.lang] || blk.headers.en || []).map(h => `<th>${escHtml(h)}</th>`).join('');
       const rows = blk.rows.map(r => '<tr>' + r.map(c => `<td>${escHtml(c)}</td>`).join('') + '</tr>').join('');
       return `<div class="data-table-card"><table class="data-table"><thead><tr>${hdrs}</tr></thead><tbody>${rows}</tbody></table></div>`;
     }
-    if (blk.type === 'link') {
-      return `<button class="qrh-link-btn" data-nav="${escHtml(blk.target)}">${escHtml(t(blk.label))} →</button>`;
-    }
+    if (blk.type === 'link') return `<button class="qrh-link-btn" data-nav="${escHtml(blk.target)}">${escHtml(t(blk.label))} →</button>`;
     if (blk.type === 'branch') {
       const bKey = `${proc.id}::${blk.id}`;
       const sel = state.qrhBranches[bKey] || null;
       const btns = blk.options.map(opt => {
         let cls = '';
-        if (sel === opt.id) {
-          cls = opt.badge === 'RED' ? 'selected-red' : opt.badge === 'GREEN' ? 'selected-green' : 'selected-amber';
-        } else if (sel) {
-          cls = 'dimmed';
-        }
+        if (sel === opt.id) cls = opt.badge === 'RED' ? 'selected-red' : opt.badge === 'GREEN' ? 'selected-green' : 'selected-amber';
+        else if (sel) cls = 'dimmed';
         return `<button class="branch-opt-btn ${cls}" data-branch-key="${escHtml(bKey)}" data-opt-id="${escHtml(opt.id)}">${escHtml(t(opt.label))}</button>`;
       }).join('');
       let content = '';
       if (sel) {
         const chosen = blk.options.find(o => o.id === sel);
-        if (chosen) {
-          content = `<div class="branch-content">${chosen.items.map((sub, si) => renderQrhBlock(proc, sub, `${idx}_${si}`)).join('')}</div>`;
-        }
+        if (chosen) content = `<div class="branch-content">${chosen.items.map((sub, si) => renderQrhBlock(proc, sub, `${idx}_${si}`)).join('')}</div>`;
       }
-      return `<div class="branch-box">
-        <div class="branch-prompt">${escHtml(t(blk.prompt))}</div>
-        <div class="branch-options">${btns}</div>
-        ${content}
-      </div>`;
+      return `<div class="branch-box"><div class="branch-prompt">${escHtml(t(blk.prompt))}</div><div class="branch-options">${btns}</div>${content}</div>`;
     }
     return '';
   }
@@ -540,7 +909,7 @@
 
   function renderQrhProc(entry) {
     const p = entry.proc;
-    const isFav = state.favorites.includes(p.id);
+    const starred = isFav(p.id);
     const chipCls = entry.cat === 'EMERGENCY' ? 'chip-red' : entry.cat === 'ABNORMAL' ? 'chip-amber' : 'chip-green';
     const catLbl = entry.cat === 'EMERGENCY'
       ? (state.lang === 'ru' ? 'Аварийная' : 'Emergency')
@@ -570,7 +939,7 @@
         </div>
         <div class="doc-title-row">
           <h1 class="doc-title"><span class="doc-title-code">${escHtml(p.code)}</span>${escHtml(cleanProcTitle(p, true))}</h1>
-          <button class="fav-toggle-btn ${isFav ? 'starred' : ''}" data-fav="${escHtml(p.id)}" title="Bookmark">${isFav ? ICO_STAR_ON : ICO_STAR_OFF}</button>
+          <button class="fav-toggle-btn ${starred ? 'starred' : ''}" data-fav="${escHtml(p.id)}" title="Favorite">${starSvg(starred, 20)}</button>
         </div>
         ${p.subtitle ? `<p class="doc-subtitle">${escHtml(t(p.subtitle))}</p>` : ''}
       </header>
@@ -586,7 +955,7 @@
     elReader.innerHTML = html;
   }
 
-  // ---- SETTINGS / DATA PANEL ----
+  // ---- SETTINGS PANEL ----
   function renderTools() {
     const hlTotal = Object.values(state.textHighlights || {}).reduce((acc, arr) => acc + (arr?.length || 0), 0);
     const noteCount = Object.keys(state.notes || {}).filter(k => state.notes[k]?.trim()).length;
@@ -594,7 +963,7 @@
 
     elReader.innerHTML = `
       <header class="doc-header">
-        <div class="doc-eyebrow"><span>DA40 NG · v5.0</span></div>
+        <div class="doc-eyebrow"><span>DA40 NG · v6.0</span></div>
         <div class="doc-title-row">
           <h1 class="doc-title">${isRu ? 'Настройки и данные' : 'Settings & Data'}</h1>
         </div>
@@ -603,7 +972,7 @@
       <section class="settings-group">
         <div class="settings-group-title">${isRu ? 'Ваши данные' : 'Library Data'}</div>
         <div class="settings-card">
-          <div class="settings-row"><span>${isRu ? 'Закладки' : 'Bookmarks'}</span><span class="settings-row-val">${state.favorites.length}</span></div>
+          <div class="settings-row"><span>${isRu ? 'Избранное' : 'Favorites'}</span><span class="settings-row-val">${state.favorites.length}</span></div>
           <div class="settings-row"><span>${isRu ? 'Выделения цветом' : 'Text Highlights'}</span><span class="settings-row-val">${hlTotal}</span></div>
           <div class="settings-row"><span>${isRu ? 'Заметки' : 'Notes'}</span><span class="settings-row-val">${noteCount}</span></div>
           <div class="settings-row"><span>${isRu ? 'Отложенные пункты eQRH' : 'Deferred eQRH Items'}</span><span class="settings-row-val">${state.deferred.length}</span></div>
@@ -680,7 +1049,7 @@
   // ============================================================
   // TRUE TEXT-SELECTION HIGHLIGHTER ENGINE
   // ============================================================
-  let pendingRanges = []; // [{ scopeKey, start, end }]
+  let pendingRanges = [];
 
   function hideHlPopover() {
     elHlPopover.classList.add('hidden');
@@ -688,7 +1057,6 @@
   }
 
   function mergeHighlightIntervals(list, start, end, color) {
-    // 1. Subtract [start, end) from every existing interval
     const next = [];
     for (const iv of (list || [])) {
       if (iv.end <= start || iv.start >= end) {
@@ -698,21 +1066,14 @@
         if (iv.end > end)     next.push({ start: end, end: iv.end, color: iv.color });
       }
     }
-    // 2. Insert new interval if applying a color
-    if (color && color !== 'clear') {
-      next.push({ start, end, color });
-    }
-    // 3. Sort and coalesce touching/overlapping intervals of identical color
+    if (color && color !== 'clear') next.push({ start, end, color });
     next.sort((a, b) => a.start - b.start);
     const merged = [];
     for (const iv of next) {
       if (iv.end <= iv.start) continue;
       const last = merged[merged.length - 1];
-      if (last && last.color === iv.color && last.end >= iv.start) {
-        last.end = Math.max(last.end, iv.end);
-      } else {
-        merged.push(iv);
-      }
+      if (last && last.color === iv.color && last.end >= iv.start) last.end = Math.max(last.end, iv.end);
+      else merged.push(iv);
     }
     return merged;
   }
@@ -736,10 +1097,8 @@
     left = Math.max(12, Math.min(window.innerWidth - popW - 12, left));
 
     let top = rect.top - popH - 10;
-    if (top < 60) {
-      top = rect.bottom + 10;
-    }
-    top = Math.max(58, Math.min(window.innerHeight - popH - 64, top));
+    if (top < 102) top = rect.bottom + 10;
+    top = Math.max(98, Math.min(window.innerHeight - popH - 64, top));
 
     elHlPopover.style.left = `${Math.round(left)}px`;
     elHlPopover.style.top  = `${Math.round(top)}px`;
@@ -752,12 +1111,8 @@
       if (!range.intersectsNode(scopeEl)) return;
       const sub = document.createRange();
       sub.selectNodeContents(scopeEl);
-      if (range.compareBoundaryPoints(Range.START_TO_START, sub) > 0) {
-        sub.setStart(range.startContainer, range.startOffset);
-      }
-      if (range.compareBoundaryPoints(Range.END_TO_END, sub) < 0) {
-        sub.setEnd(range.endContainer, range.endOffset);
-      }
+      if (range.compareBoundaryPoints(Range.START_TO_START, sub) > 0) sub.setStart(range.startContainer, range.startOffset);
+      if (range.compareBoundaryPoints(Range.END_TO_END, sub) < 0) sub.setEnd(range.endContainer, range.endOffset);
       const selectedStr = sub.toString();
       if (!selectedStr || !selectedStr.trim()) return;
 
@@ -766,22 +1121,16 @@
       pre.setEnd(sub.startContainer, sub.startOffset);
       const start = pre.toString().length;
       const end = start + selectedStr.length;
-      if (end > start) {
-        found.push({ scopeKey: scopeEl.dataset.hlScope, start, end });
-      }
+      if (end > start) found.push({ scopeKey: scopeEl.dataset.hlScope, start, end });
     });
     return found;
   }
 
   function handleSelectionCheck() {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-      return;
-    }
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
-    if (!elReader.contains(range.commonAncestorContainer)) {
-      return;
-    }
+    if (!elReader.contains(range.commonAncestorContainer)) return;
     const ranges = computeSelectedScopeRanges(range);
     if (!ranges.length) return;
 
@@ -794,7 +1143,6 @@
   function applyHighlightsToScope(scopeEl) {
     const key = scopeEl.dataset.hlScope;
     const intervals = state.textHighlights[key];
-    // First unwrap any existing mark.txt-hl inside scopeEl so re-application is idempotent
     scopeEl.querySelectorAll('mark.txt-hl').forEach(mk => {
       const parent = mk.parentNode;
       while (mk.firstChild) parent.insertBefore(mk.firstChild, mk);
@@ -804,18 +1152,15 @@
 
     if (!intervals || !intervals.length) return;
 
-    // Collect text nodes with exact character spans
     const walker = document.createTreeWalker(scopeEl, NodeFilter.SHOW_TEXT, null);
     const nodes = [];
-    let pos = 0;
-    let node;
+    let pos = 0, node;
     while ((node = walker.nextNode())) {
       const len = node.nodeValue.length;
       if (len > 0) nodes.push({ node, start: pos, end: pos + len });
       pos += len;
     }
 
-    // Replace each text node that overlaps any highlight interval
     for (const tn of nodes) {
       const overlaps = intervals.filter(iv => iv.start < tn.end && iv.end > tn.start);
       if (!overlaps.length) continue;
@@ -827,9 +1172,7 @@
       for (const iv of overlaps) {
         const s = Math.max(tn.start, iv.start);
         const e = Math.min(tn.end, iv.end);
-        if (s > cursor) {
-          frag.appendChild(document.createTextNode(raw.slice(cursor - tn.start, s - tn.start)));
-        }
+        if (s > cursor) frag.appendChild(document.createTextNode(raw.slice(cursor - tn.start, s - tn.start)));
         const mk = document.createElement('mark');
         mk.className = `txt-hl hl-${iv.color}`;
         mk.dataset.hlScope = key;
@@ -839,9 +1182,7 @@
         frag.appendChild(mk);
         cursor = e;
       }
-      if (cursor < tn.end) {
-        frag.appendChild(document.createTextNode(raw.slice(cursor - tn.start)));
-      }
+      if (cursor < tn.end) frag.appendChild(document.createTextNode(raw.slice(cursor - tn.start)));
       tn.node.parentNode.replaceChild(frag, tn.node);
     }
   }
@@ -849,23 +1190,18 @@
   function applyHighlightsToDOM() {
     elReader.querySelectorAll('.hl-scope[data-hl-scope]').forEach(el => {
       const key = el.dataset.hlScope;
-      if (state.textHighlights[key] && state.textHighlights[key].length) {
-        applyHighlightsToScope(el);
-      }
+      if (state.textHighlights[key] && state.textHighlights[key].length) applyHighlightsToScope(el);
     });
   }
 
-  // Prevent tapping the floating popover from destroying the active selection
   elHlPopover.addEventListener('mousedown', (e) => e.preventDefault());
   elHlPopover.addEventListener('touchstart', (e) => {
-    const btn = e.target.closest('[data-hl-color]');
-    if (btn) e.preventDefault();
+    if (e.target.closest('[data-hl-color]')) e.preventDefault();
   }, { passive: false });
 
   function commitHighlightAction(color) {
     if (!pendingRanges.length) return;
     if (!state.textHighlights) state.textHighlights = {};
-
     const touchedKeys = new Set();
     for (const r of pendingRanges) {
       const next = mergeHighlightIntervals(state.textHighlights[r.scopeKey], r.start, r.end, color);
@@ -874,13 +1210,10 @@
       touchedKeys.add(r.scopeKey);
     }
     saveState();
-
-    // Update affected DOM nodes immediately in-place (zero scroll jump!)
     touchedKeys.forEach(k => {
       const el = elReader.querySelector(`.hl-scope[data-hl-scope="${CSS.escape(k)}"]`);
       if (el) applyHighlightsToScope(el);
     });
-
     try { window.getSelection().removeAllRanges(); } catch {}
     hideHlPopover();
   }
@@ -891,7 +1224,6 @@
     e.stopPropagation();
     commitHighlightAction(btn.dataset.hlColor);
   });
-  // Also support fast iPad tap via touchend on popover buttons
   elHlPopover.addEventListener('touchend', (e) => {
     const btn = e.target.closest('[data-hl-color]');
     if (!btn) return;
@@ -900,24 +1232,38 @@
     commitHighlightAction(btn.dataset.hlColor);
   });
 
-  // Listen for native text selections (Desktop + iPad Safari)
   let selTimer = null;
   document.addEventListener('selectionchange', () => {
     clearTimeout(selTimer);
     selTimer = setTimeout(() => {
       const sel = window.getSelection();
-      if (!sel || sel.isCollapsed) {
-        // Keep popover open if editing an existing highlight mark (no native selection)
-        return;
-      }
+      if (!sel || sel.isCollapsed) return;
       handleSelectionCheck();
     }, 110);
   });
-
   elReaderPane.addEventListener('mouseup', () => setTimeout(handleSelectionCheck, 20));
   elReaderPane.addEventListener('touchend', () => setTimeout(handleSelectionCheck, 160));
+
+  // Scroll-spy: live-update active sub-section in the FlySmart breadcrumb bar as user scrolls!
+  let scrollSpyTimer = null;
   elReaderPane.addEventListener('scroll', () => {
     if (!elHlPopover.classList.contains('hidden')) hideHlPopover();
+    if (curLayer().module !== 'afm') return;
+    clearTimeout(scrollSpyTimer);
+    scrollSpyTimer = setTimeout(() => {
+      const anchors = elReader.querySelectorAll('[data-sub-anchor]');
+      if (!anchors.length) return;
+      const scrollTop = elReaderPane.scrollTop;
+      let activeId = anchors[0].dataset.subAnchor;
+      for (const a of anchors) {
+        if (a.offsetTop - 60 <= scrollTop) activeId = a.dataset.subAnchor;
+        else break;
+      }
+      if (curLayer().subId !== activeId) {
+        curLayer().subId = activeId;
+        renderCrumbBar();
+      }
+    }, 90);
   }, { passive: true });
 
   // ---- MASTER RENDER ----
@@ -940,7 +1286,6 @@
     $('btnBack').disabled = L.histIdx <= 0;
     $('btnFwd').disabled  = L.histIdx >= L.history.length - 1;
 
-    // Badges (only visible when > 0 to keep top bar visually clean!)
     const favCnt = state.favorites.length;
     $('favCount').textContent = favCnt;
     $('favCount').classList.toggle('hidden', favCnt === 0);
@@ -952,11 +1297,7 @@
     const hasNote = !!(state.notes[L.itemId] && state.notes[L.itemId].trim());
     $('noteDot').classList.toggle('hidden', !hasNote);
 
-    renderSidebar();
-
-    if (L.module === 'tools') {
-      renderTools();
-    } else {
+    if (L.module !== 'tools') {
       let entry = UNIT_MAP.get(L.itemId);
       if (!entry) {
         if (L.module === 'eqrh') L.itemId = EQRH_EMERGENCY[0]?.id || 'em-334';
@@ -964,13 +1305,80 @@
         else L.itemId = AFM_CHAPTERS[0]?.units[0]?.id || 'du-1-1';
         entry = UNIT_MAP.get(L.itemId);
       }
-      if (!entry) return;
-      if (entry.kind === 'afm') renderAfmUnit(entry);
-      else renderQrhProc(entry);
+      renderCrumbBar();
+      if (entry) {
+        if (entry.kind === 'afm') renderAfmUnit(entry);
+        else renderQrhProc(entry);
+      }
+    } else {
+      renderCrumbBar();
+      renderTools();
     }
   }
 
-  // ---- GLOBAL SEARCH (EN + RU) ----
+  // ---- FAVORITES RESOLVER & MODAL ----
+  function resolveFavorite(favId) {
+    const isRu = state.lang === 'ru';
+    if (favId.startsWith('ch:')) {
+      const ch = CHAPTER_MAP.get(favId.slice(3));
+      if (!ch) return null;
+      return {
+        id: favId,
+        title: `${isRu ? 'Глава' : 'Chapter'} ${ch.code} · ${t(ch.title)}`,
+        sub: isRu ? 'РЛЭ · Глава целиком' : 'AFM · Chapter'
+      };
+    }
+    if (favId.includes('#')) {
+      const [uid, subId] = favId.split('#');
+      const e = UNIT_MAP.get(uid);
+      if (!e || e.kind !== 'afm') return null;
+      const subs = getUnitSubs(e.unit, state.lang);
+      const s = subs.find(x => x.id === subId) || getUnitSubs(e.unit, 'en').find(x => x.id === subId);
+      return {
+        id: favId,
+        title: s ? s.text : `${e.unit.code} ${t(e.unit.title)}`,
+        sub: `${isRu ? 'РЛЭ' : 'AFM'} · ${e.unit.code} ${t(e.unit.title)}`
+      };
+    }
+    const e = UNIT_MAP.get(favId);
+    if (!e) return null;
+    if (e.kind === 'afm') {
+      return {
+        id: favId,
+        title: `${e.unit.code} ${t(e.unit.title)}`,
+        sub: `${isRu ? 'Глава' : 'Chapter'} ${e.chapter.code} · ${t(e.chapter.title)}`
+      };
+    }
+    const catLbl = e.cat === 'EMERGENCY' ? (isRu ? 'eQRH · Аварийная' : 'eQRH · Emergency')
+      : e.cat === 'ABNORMAL' ? (isRu ? 'eQRH · Особый случай' : 'eQRH · Abnormal')
+      : (isRu ? 'Чеклист · Нормальная' : 'Checklist · Normal');
+    return {
+      id: favId,
+      title: `${e.proc.code} ${cleanProcTitle(e.proc, true)}`,
+      sub: `${catLbl}${e.proc.cas ? ' · ' + e.proc.cas : ''}`
+    };
+  }
+
+  function renderFavModal() {
+    const isRu = state.lang === 'ru';
+    $('favModalTitle').textContent = isRu ? 'Избранное' : 'Favorites';
+    const body = $('favModalBody');
+    const items = state.favorites.map(resolveFavorite).filter(Boolean);
+    if (!items.length) {
+      body.innerHTML = `<div class="empty-state">${isRu ? 'Избранных пунктов пока нет. Нажимайте ★ в верхней панели или в выпадающих списках.' : 'No favorites yet. Tap ★ in the top path bar or inside any dropdown menu.'}</div>`;
+      return;
+    }
+    body.innerHTML = items.map(it => `
+      <div class="search-res-item" data-fav-nav="${escHtml(it.id)}">
+        <div class="search-res-main">
+          <div class="search-res-title">${escHtml(it.title)}</div>
+          <div class="search-res-snip">${escHtml(it.sub)}</div>
+        </div>
+        <button class="cm-star starred" data-fav-rm="${escHtml(it.id)}" title="${isRu ? 'Убрать из избранного' : 'Remove'}">${starSvg(true, 16)}</button>
+      </div>`).join('');
+  }
+
+  // ---- GLOBAL SEARCH ----
   function runGlobalSearch(query) {
     const q = query.trim().toLowerCase();
     const box = $('searchResults');
@@ -997,18 +1405,17 @@
     }
     box.innerHTML = hits.slice(0, 40).map(h => `
       <div class="search-res-item" data-search-nav="${escHtml(h.id)}">
-        <div class="search-res-title">${escHtml(h.title)}</div>
-        <div class="search-res-snip">${escHtml(h.sub)}</div>
+        <div class="search-res-main">
+          <div class="search-res-title">${escHtml(h.title)}</div>
+          <div class="search-res-snip">${escHtml(h.sub)}</div>
+        </div>
+        <button class="cm-star ${isFav(h.id) ? 'starred' : ''}" data-fav="${escHtml(h.id)}" title="Favorite">${starSvg(isFav(h.id), 15)}</button>
       </div>`).join('');
   }
 
   // ---- MODALS & POPOVERS ----
-  function openModal(id)  { $(id).classList.remove('hidden'); }
+  function openModal(id)  { closeCrumbMenu(); $(id).classList.remove('hidden'); }
   function closeModal(id) { $(id).classList.add('hidden'); }
-  function closeMobileSidebar() {
-    elSidebar.classList.remove('open-mobile');
-    elBackdrop.classList.remove('visible');
-  }
 
   function showGlossary(abbr, targetEl) {
     const def = GLOSSARY[abbr];
@@ -1033,16 +1440,6 @@
   }
 
   // ---- EVENT LISTENERS ----
-  $('btnIndex').onclick = () => {
-    if (window.innerWidth <= 900) {
-      elSidebar.classList.toggle('open-mobile');
-      elBackdrop.classList.toggle('visible');
-    } else {
-      elSidebar.classList.toggle('collapsed');
-    }
-  };
-  $('btnCloseSidebar').onclick = closeMobileSidebar;
-  elBackdrop.onclick = closeMobileSidebar;
   $('btnBack').onclick = goBack;
   $('btnFwd').onclick = goForward;
 
@@ -1055,6 +1452,7 @@
   $('langSwitch').onclick = (e) => {
     const btn = e.target.closest('[data-lang]');
     if (!btn) return;
+    closeCrumbMenu();
     state.lang = btn.dataset.lang;
     saveState();
     renderAll();
@@ -1070,33 +1468,58 @@
     b.onclick = () => switchModule(b.dataset.module);
   });
 
-  elSidebarFilter.oninput = renderSidebar;
-  elSidebarTree.onclick = (e) => {
-    const item = e.target.closest('[data-nav]');
-    if (item) navigateTo(item.dataset.nav);
+  // FlySmart Chevron Breadcrumb Bar Events
+  elCrumbBar.onclick = (e) => {
+    const favBtn = e.target.closest('[data-fav]');
+    if (favBtn) {
+      e.stopPropagation();
+      toggleFav(favBtn.dataset.fav);
+      updateFavBadgeAndStars();
+      return;
+    }
+    const openBtn = e.target.closest('[data-crumb-open]');
+    if (openBtn) {
+      e.stopPropagation();
+      openCrumbMenu(openBtn.dataset.crumbOpen, openBtn.closest('.crumb-wrap'));
+    }
+  };
+
+  // FlySmart Dropdown Menu Events
+  elCrumbMenu.onclick = (e) => {
+    const favBtn = e.target.closest('[data-fav]');
+    if (favBtn) {
+      e.stopPropagation();
+      toggleFav(favBtn.dataset.fav);
+      updateFavBadgeAndStars();
+      return;
+    }
+    const modRow = e.target.closest('[data-cm-mod]');
+    if (modRow) {
+      switchModule(modRow.dataset.cmMod);
+      return;
+    }
+    const navRow = e.target.closest('[data-cm-nav]');
+    if (navRow) {
+      navigateTo(navRow.dataset.cmNav);
+    }
   };
 
   // Reader Pane Delegated Events
   elReader.onclick = (e) => {
     elGlossaryPop.classList.add('hidden');
+    if (openCrumbMenuKind) closeCrumbMenu();
 
-    // If user just finished dragging a text selection, let selection popover handle it
     const sel = window.getSelection();
     if (sel && !sel.isCollapsed) return;
 
-    // Favorite toggle in page header
     const favBtn = e.target.closest('[data-fav]');
     if (favBtn) {
-      const id = favBtn.dataset.fav;
-      const i = state.favorites.indexOf(id);
-      if (i >= 0) state.favorites.splice(i, 1);
-      else state.favorites.push(id);
-      saveState();
-      renderAll();
+      e.stopPropagation();
+      toggleFav(favBtn.dataset.fav);
+      updateFavBadgeAndStars();
       return;
     }
 
-    // Tap on existing highlight mark -> open color/remove popover
     const markEl = e.target.closest('mark.txt-hl');
     if (markEl) {
       e.stopPropagation();
@@ -1111,7 +1534,6 @@
 
     hideHlPopover();
 
-    // Glossary term tap
     const abbrEl = e.target.closest('.abbr-term');
     if (abbrEl) {
       e.stopPropagation();
@@ -1119,21 +1541,18 @@
       return;
     }
 
-    // Diagram tap to zoom
     const fig = e.target.closest('.du-figure');
     if (fig) {
       openDiagram(fig.dataset.zoomSrc, fig.dataset.zoomCap);
       return;
     }
 
-    // Cross-link / Pager / AFM jump
     const navBtn = e.target.closest('[data-nav]');
     if (navBtn) {
       navigateTo(navBtn.dataset.nav);
       return;
     }
 
-    // Reset single eQRH procedure
     const rstBtn = e.target.closest('[data-reset-proc]');
     if (rstBtn) {
       const pid = rstBtn.dataset.resetProc;
@@ -1145,7 +1564,6 @@
       return;
     }
 
-    // Defer item button
     const defBtn = e.target.closest('[data-defer-proc]');
     if (defBtn) {
       e.stopPropagation();
@@ -1177,7 +1595,6 @@
       return;
     }
 
-    // Branch selection button
     const brBtn = e.target.closest('[data-branch-key]');
     if (brBtn) {
       const bk = brBtn.dataset.branchKey;
@@ -1188,7 +1605,6 @@
       return;
     }
 
-    // eQRH step toggle
     const stepEl = e.target.closest('[data-step-key]');
     if (stepEl) {
       const sk = stepEl.dataset.stepKey;
@@ -1206,6 +1622,17 @@
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed) hideHlPopover();
     }
+    if (openCrumbMenuKind && !e.target.closest('#crumbMenu') && !e.target.closest('#crumbBar')) {
+      closeCrumbMenu();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeCrumbMenu();
+      hideHlPopover();
+      document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
+    }
   });
 
   // Search Modal
@@ -1216,32 +1643,31 @@
   };
   $('globalSearchInput').oninput = (e) => runGlobalSearch(e.target.value);
   $('searchResults').onclick = (e) => {
+    const fav = e.target.closest('[data-fav]');
+    if (fav) {
+      e.stopPropagation();
+      toggleFav(fav.dataset.fav);
+      updateFavBadgeAndStars();
+      return;
+    }
     const r = e.target.closest('[data-search-nav]');
     if (r) { closeModal('searchModal'); navigateTo(r.dataset.searchNav); }
   };
 
-  // Bookmarks Modal
+  // Favorites Modal
   $('btnFavList').onclick = () => {
-    const body = $('favModalBody');
-    if (!state.favorites.length) {
-      body.innerHTML = `<div class="empty-state">${state.lang === 'ru' ? 'Закладок пока нет. Нажмите звёздочку рядом с заголовком раздела.' : 'No bookmarks yet. Tap the star next to any section title.'}</div>`;
-    } else {
-      body.innerHTML = state.favorites.map(id => {
-        const e = UNIT_MAP.get(id);
-        if (!e) return '';
-        const title = e.kind === 'afm'
-          ? `${e.unit.code} ${t(e.unit.title)}`
-          : `${e.proc.code} ${cleanProcTitle(e.proc, true)}`;
-        const sub = e.kind === 'afm' ? t(e.chapter.title) : e.cat;
-        return `<div class="search-res-item" data-fav-nav="${escHtml(id)}">
-          <div class="search-res-title">${escHtml(title)}</div>
-          <div class="search-res-snip">${escHtml(sub)}</div>
-        </div>`;
-      }).join('');
-    }
+    renderFavModal();
     openModal('favModal');
   };
   $('favModalBody').onclick = (e) => {
+    const rm = e.target.closest('[data-fav-rm]');
+    if (rm) {
+      e.stopPropagation();
+      toggleFav(rm.dataset.favRm);
+      updateFavBadgeAndStars();
+      renderFavModal();
+      return;
+    }
     const r = e.target.closest('[data-fav-nav]');
     if (r) { closeModal('favModal'); navigateTo(r.dataset.favNav); }
   };
@@ -1275,8 +1701,8 @@
       body.innerHTML = '<div class="empty-state">No deferred items.</div>';
     } else {
       body.innerHTML = state.deferred.map((d, idx) => `
-        <div class="search-res-item" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-          <div data-def-nav="${escHtml(d.procId)}" style="flex:1;cursor:pointer;">
+        <div class="search-res-item">
+          <div class="search-res-main" data-def-nav="${escHtml(d.procId)}">
             <div class="search-res-title">${escHtml(d.code)}</div>
             <div class="search-res-snip">${escHtml(state.lang === 'ru' ? d.labelRu : d.labelEn)}</div>
           </div>
@@ -1333,17 +1759,13 @@
       } catch {}
     }
     if (saved) {
-      // Migrate old theme names ('day' -> 'light', 'night' -> 'dark')
       if (saved.theme === 'day') saved.theme = 'light';
       if (saved.theme === 'night') saved.theme = 'dark';
       state = { ...state, ...saved };
-      if (!state.textHighlights || typeof state.textHighlights !== 'object') {
-        state.textHighlights = {};
-      }
-      if (!Array.isArray(state.layers) || state.layers.length !== 3) {
-        state.layers = defaultState.layers;
-      }
+      if (!state.textHighlights || typeof state.textHighlights !== 'object') state.textHighlights = {};
+      if (!Array.isArray(state.layers) || state.layers.length !== 3) state.layers = defaultState.layers;
       state.layers.forEach(L => {
+        if (L.subId === undefined) L.subId = null;
         if (L.module !== 'tools' && !UNIT_MAP.has(L.itemId)) {
           L.itemId = L.module === 'eqrh' ? (EQRH_EMERGENCY[0]?.id || 'em-334')
             : L.module === 'sop' ? (EQRH_NORMAL[0]?.id || 'nm-4a4')
@@ -1362,11 +1784,11 @@
         swReloading = true;
         location.reload();
       });
-      navigator.serviceWorker.register('./sw.js?v=5.0').then((reg) => {
+      navigator.serviceWorker.register('./sw.js?v=6.0').then((reg) => {
         reg.update().catch(() => {});
-        swStatusLabel = 'Active (v5.0)';
+        swStatusLabel = 'Active (v6.0)';
       }).catch(() => {
-        swStatusLabel = 'Local (v5.0)';
+        swStatusLabel = 'Local (v6.0)';
       });
     }
   }

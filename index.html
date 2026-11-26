@@ -11,20 +11,14 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="icon" type="image/png" href="assets/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=5.0">
+  <link rel="stylesheet" href="css/style.css?v=6.0">
 </head>
 <body>
   <div id="app" class="app-shell">
 
-    <!-- UNIFIED APPLE-STYLE NAVIGATION BAR -->
+    <!-- TOP NAVIGATION BAR -->
     <header class="navbar">
       <div class="nav-left">
-        <button id="btnIndex" class="icon-btn" title="Sidebar" aria-label="Toggle Sidebar">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="16" rx="3"/>
-            <line x1="9" y1="4" x2="9" y2="20"/>
-          </svg>
-        </button>
         <div class="nav-history">
           <button id="btnBack" class="icon-btn" title="Back" aria-label="Back" disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -50,9 +44,9 @@
           </svg>
         </button>
 
-        <button id="btnFavList" class="icon-btn" title="Bookmarks" aria-label="Bookmarks">
+        <button id="btnFavList" class="icon-btn" title="Favorites" aria-label="Favorites">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
           </svg>
           <span id="favCount" class="pill-badge hidden">0</span>
         </button>
@@ -80,25 +74,11 @@
       </div>
     </header>
 
-    <!-- MAIN SPLIT VIEW -->
-    <div class="workspace">
-      <aside class="sidebar" id="sidebar">
-        <div class="sidebar-top">
-          <div class="sidebar-title-row">
-            <span id="sidebarTitle" class="sidebar-heading">Flight Manual</span>
-            <button id="btnCloseSidebar" class="icon-btn sb-close" aria-label="Close Sidebar">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-          <div class="sidebar-search-wrap">
-            <svg class="search-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="search" id="sidebarFilter" placeholder="Filter…">
-          </div>
-        </div>
-        <div class="sidebar-tree" id="sidebarTree"></div>
-      </aside>
-      <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <!-- FLYSMART-STYLE HIERARCHICAL CHEVRON BREADCRUMB BAR -->
+    <nav class="crumb-bar" id="crumbBar" aria-label="Document Navigation"></nav>
 
+    <!-- FULL-WIDTH READER CANVAS -->
+    <div class="workspace">
       <main class="reader-pane" id="readerPane">
         <article class="reader-inner" id="readerContent"></article>
       </main>
@@ -133,6 +113,9 @@
     </footer>
   </div>
 
+  <!-- FLOATING BREADCRUMB DROPDOWN MENU -->
+  <div id="crumbMenu" class="crumb-menu hidden" role="menu"></div>
+
   <!-- FLOATING TEXT HIGHLIGHTER POPOVER (Apple Books Style) -->
   <div id="hlPopover" class="hl-popover hidden" role="toolbar" aria-label="Highlight Text">
     <button class="hl-dot hl-dot-yellow" data-hl-color="yellow" title="Highlight Yellow" aria-label="Yellow"></button>
@@ -164,11 +147,11 @@
     </div>
   </div>
 
-  <!-- MODAL: BOOKMARKS -->
+  <!-- MODAL: FAVORITES / BOOKMARKS -->
   <div class="modal-overlay hidden" id="favModal">
     <div class="modal-sheet">
       <div class="modal-head">
-        <span>Bookmarks</span>
+        <span id="favModalTitle">Favorites</span>
         <button class="modal-close" data-close="favModal">Done</button>
       </div>
       <div class="modal-body" id="favModalBody"></div>
@@ -222,12 +205,12 @@
   </div>
 
   <!-- DATA MODULES -->
-  <script src="data/glossary.js?v=5.0"></script>
-  <script src="data/eqrh_emergency.js?v=5.0"></script>
-  <script src="data/eqrh_abnormal.js?v=5.0"></script>
-  <script src="data/eqrh_normal.js?v=5.0"></script>
-  <script src="data/afm_full.js?v=5.0"></script>
+  <script src="data/glossary.js?v=6.0"></script>
+  <script src="data/eqrh_emergency.js?v=6.0"></script>
+  <script src="data/eqrh_abnormal.js?v=6.0"></script>
+  <script src="data/eqrh_normal.js?v=6.0"></script>
+  <script src="data/afm_full.js?v=6.0"></script>
   <!-- ENGINE -->
-  <script src="js/app.js?v=5.0"></script>
+  <script src="js/app.js?v=6.0"></script>
 </body>
 </html>
